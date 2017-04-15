@@ -140,3 +140,21 @@ class KrTable(tb.IsDescription):
     Phi   = tb.Float64Col(pos=19)
     Xrms  = tb.Float64Col(pos=20)
     Yrms  = tb.Float64Col(pos=21)
+
+
+class TrackTable(tb.IsDescription):
+    event = tb.  Int32Col(pos= 0)
+    time  = tb.Float64Col(pos= 1)
+
+    S1w   = tb.Float64Col(pos= 2)
+    S1h   = tb.Float64Col(pos= 3)
+    S1e   = tb.Float64Col(pos= 4)
+    S1t   = tb.Float64Col(pos= 5)
+
+    npeak = tb. UInt16Col(pos= 6)
+    X     = tb.Float64Col(pos= 7)
+    Y     = tb.Float64Col(pos= 8)
+    Z     = tb.Float64Col(pos= 9)
+    R     = tb.Float64Col(pos=10)
+    Phi   = tb.Float64Col(pos=11)
+    Nsipm = tb. UInt16Col(pos=12)
