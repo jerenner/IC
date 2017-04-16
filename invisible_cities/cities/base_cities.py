@@ -33,10 +33,10 @@ import invisible_cities.reco.wfm_functions as wfm
 from   invisible_cities.core.random_sampling \
          import NoiseSampler as SiPMsNoiseSampler
 from   invisible_cities.core.configure import print_configuration
-from   invisible_cities.reco.dst_io import PointLikeEvent, Hit, HitCollection
+from   invisible_cities.reco.dst_io import PointLikeEvent, Hit, Track
 from   invisible_cities.reco.dst_functions import load_z_corrections, load_xy_corrections
 from   invisible_cities.reco.nh5 import DECONV_PARAM
-from   invisible_cities.reco.xy_algorithms import find_algorithm
+from   invisible_cities.reco.xy_algorithms import Barycenter
 import invisible_cities.reco.pmap_io as pio
 
 if sys.version_info >= (3,5):
@@ -751,7 +751,7 @@ class TrackCity(S12SelectorCity):
 
                   z_corr_filename = None,
                  xy_corr_filename = None,
-                 reco_algorithm   = "Barycenter"):
+                 reco_algorithm   = Barycenter):
 
         S12SelectorCity.__init__(self,
                                  drift_v     = 1 * units.mm/units.mus,
@@ -780,7 +780,7 @@ class TrackCity(S12SelectorCity):
 
         self. z_corr = load_z_corrections ( z_corr_filename)
         self.xy_corr = load_xy_corrections(xy_corr_filename)
-        self.reco    = find_algorithm(reco_algorithm)
+        self.reco    = reco_algorithm
 
     def split_energy(self, e, q):
         return e * q / np.sum(q)
@@ -795,7 +795,7 @@ class TrackCity(S12SelectorCity):
         return self.reco_algorithm(xs, ys, Qs)
 
     def select_event(self, evt_number, evt_time, S1, S2, Si):
-        hitc = HitCollection()
+        hitc = Track()
 
         S1     = self.select_S1(S1)
         S2, Si = self.select_S2(S2, Si)
