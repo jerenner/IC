@@ -10,7 +10,7 @@ def find_algorithm(algoname):
         raise ValueError("The algorithm <{}> does not exist".format(algoname))
 
 
-def Barycenter(xs, ys, qs):
+def barycenter(xs, ys, qs):
     x = np.average(xs, weights=qs)
     y = np.average(qs, weights=qs)
     q = np.sum(qs)
