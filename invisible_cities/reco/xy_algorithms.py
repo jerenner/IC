@@ -2,7 +2,7 @@ import sys
 
 import numpy as np
 
-from params import Cluster
+from invisible_cities.reco.params import Cluster
 
 def find_algorithm(algoname):
     if algoname in sys.modules[__name__].__dict__:
