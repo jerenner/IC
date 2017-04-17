@@ -69,7 +69,7 @@ class Kr_writer(DST_writer):
         KrEvent(evt).store(self.row)
 
 
-class Track_writer(DST_writer):
+class HitCollection_writer(DST_writer):
     def __init__(self,
                  filename,
                  group = "DST",
@@ -215,7 +215,7 @@ class Hit:
         self.Nsipm = -1
 
 
-class Track(list, Event):
+class HitCollection(list, Event):
     def __init__(self):
         list .__init__(self)
         Event.__init__(self)
