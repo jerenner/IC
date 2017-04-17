@@ -14,5 +14,6 @@ def Barycenter(xs, ys, qs):
     x = np.average(xs, weights=qs)
     y = np.average(qs, weights=qs)
     q = np.sum(qs)
-    return [x], [y], [q]
+    n = len(qs)
+    return [x], [y], [q], [n]
 
