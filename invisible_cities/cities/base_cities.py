@@ -738,6 +738,7 @@ class HitCollectionCity(S12SelectorCity):
                  S1_Hmax          = np.inf,
                  S1_Ethr          = 0,
 
+                 S2_Nmin          = 1,
                  S2_Nmax          = 1000,
                  S2_Emin          = 0,
                  S2_Emax          = np.inf,
@@ -766,7 +767,7 @@ class HitCollectionCity(S12SelectorCity):
                                  S1_Hmax     = S1_Hmax,
                                  S1_Ethr     = S1_Ethr,
 
-                                 S2_Nmin     = 1,
+                                 S2_Nmin     = S2_Nmin,
                                  S2_Nmax     = S2_Nmax,
                                  S2_Emin     = S2_Emin,
                                  S2_Emax     = S2_Emax,
