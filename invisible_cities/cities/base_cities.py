@@ -25,6 +25,7 @@ import invisible_cities.sierpe.blr as blr
 import invisible_cities.reco.peak_functions_c as cpf
 import invisible_cities.reco.peak_functions as pf
 import invisible_cities.reco.pmaps_functions as pmp
+import invisible_cities.reco.paolina_functions as paolina
 from   invisible_cities.core.exceptions import NoInputFiles, NoOutputFile
 import invisible_cities.sierpe.fee as FE
 import invisible_cities.reco.tbl_functions as tbf
