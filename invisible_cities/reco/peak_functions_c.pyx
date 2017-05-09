@@ -26,7 +26,6 @@ cpdef calibrated_pmt_sum(double [:, :]  CWF,
     pmt_active: a list of active PMTs
     n_MAU:  length of the MAU window
     thr_MAU: treshold above MAU to select sample
-
     """
 
     cdef int j, k
@@ -75,7 +74,6 @@ cpdef calibrated_pmt_mau(double [:, :]  CWF,
     list: list of active PMTs
     n_MAU:  length of the MAU window
     thr_MAU: treshold above MAU to select sample
-
     """
 
     cdef int j, k
@@ -120,7 +118,6 @@ cpdef wfzs(double [:] wf, double threshold=0):
     then the algoritm returns
     a vector of amplitudes [7,8,9,9,10,9,8,7,6] and a vector of indexes
     [4,5,6,7,8,9,10,12,14]
-
     """
     cdef int len_wf = wf.shape[0]
     cdef double [:] wfzs_e = np.zeros(len_wf, dtype=np.double)
@@ -169,7 +166,6 @@ cpdef find_S12(double [:] wfzs,  int [:] index,
     wfzs:   a vector containining the zero supressed wf
     indx:   a vector of indexes
     returns a dictionary
-
     do not interrupt the peak if next sample comes within stride
     accept the peak only if within [lmin, lmax)
     accept the peak only if within [tmin, tmax)
@@ -307,10 +303,10 @@ cpdef rebin_S2(double [:] t, double [:] e, dict sipms, int nrebin):
         i0 = i  * nrebin
         i1 = i0 + nrebin
 
-        e_slice = e_rebin[i0:i1]
+        e_slice = e[i0:i1]
         t_rebin[i] = np.average(t[i0:i1], weights = e_slice if np.any(e_slice) else None)
         e_rebin[i] = np.sum(e_slice)
-        for sipm, qs in sipms_rebin.items():
+        for sipm, qs in sipms.items():
             sipms_rebin[sipm][i] = np.sum(qs[i0:i1])
 
     return np.asarray(t_rebin), np.asarray(e_rebin), sipms_rebin
@@ -323,7 +319,6 @@ cpdef signal_sipm(np.ndarray[np.int16_t, ndim=2] SIPM,
     subtracts the baseline
     Uses a MAU to set the signal threshold (thr, in PES)
     returns ZS waveforms for all SiPMs
-
     """
 
     cdef int j, k
