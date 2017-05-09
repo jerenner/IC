@@ -36,6 +36,7 @@ from   invisible_cities.core.configure import print_configuration
 from   invisible_cities.reco.dst_io import PointLikeEvent, Hit, HitCollection
 from   invisible_cities.reco.dst_functions import load_z_corrections, load_xy_corrections
 from   invisible_cities.reco.nh5 import DECONV_PARAM
+from   invisible_cities.reco.params import Peak
 from   invisible_cities.reco.xy_algorithms import barycenter
 import invisible_cities.reco.pmap_io as pio
 
@@ -750,6 +751,7 @@ class HitCollectionCity(S12SelectorCity):
                  S2_NSIPMmax      = np.inf,
                  S2_Ethr          = 0,
 
+                 rebin            = 1,
                   z_corr_filename = None,
                  xy_corr_filename = None,
                  lifetime         = None,
@@ -780,6 +782,7 @@ class HitCollectionCity(S12SelectorCity):
                                  S2_NSIPMmax = S2_NSIPMmax,
                                  S2_Ethr     = S2_Ethr)
 
+        self.rebin          = rebin
         if lifetime is None:
             self.z_corr     = load_z_corrections (z_corr_filename)
         else:
@@ -787,6 +790,17 @@ class HitCollectionCity(S12SelectorCity):
         self.xy_corr        = load_xy_corrections(xy_corr_filename)
         self.reco_algorithm = reco_algorithm
 
+    def rebin_s2(self, S2, Si):
+        if self.rebin <= 1:
+            return S2, Si
+
+        S2_rebin = {}
+        Si_rebin = {}
+        for peak in S2:
+            t, e, sipms = cpf.rebin_S2(S2[peak][0], S2[peak][1], Si[peak], self.rebin)
+            S2_rebin[peak] = Peak(t, e)
+            Si_rebin[peak] = sipms
+        return S2_rebin, Si_rebin
 
     def split_energy(self, e, clusters):
         if len(clusters) == 1:
@@ -820,6 +834,8 @@ class HitCollectionCity(S12SelectorCity):
 
         t, e = next(iter(S1.values()))
         S1t  = t[np.argmax(e)]
+
+        S2, Si = self.rebin_s2(S2, Si)
 
         npeak = 0
         for peak_no, (t_peak, e_peak) in sorted(S2.items()):
