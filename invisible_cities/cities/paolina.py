@@ -88,11 +88,12 @@ shortest_paths = partial(nx.all_pairs_dijkstra_path_length, weight='distance')
 
 def find_extrema(distance : 'dict of dicts'):
     first, last, max_distance = None, None, 0
+    if(len(distance) < 2): first = last = next(iter(distance))
     for source, target in combinations(distance, 2):
         d = distance[source][target]
         if d > max_distance:
             first, last, max_distance = source, target, d
-    return set((first, last))
+    return (first, last)
 
 
 def energy_within_radius(distances, radius):
@@ -104,4 +105,4 @@ def blob_energies(track_graph, radius):
     a,b = find_extrema(distances)
     Ea = energy_within_radius(distances[a], radius)
     Eb = energy_within_radius(distances[b], radius)
-    return set((Ea, Eb))
+    return (Ea, Eb)
