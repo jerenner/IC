@@ -159,6 +159,59 @@ class Olinda(KerasDNNCity):
         f1 = Dropout(.6)(f1)
         coutput = Dense(units=2, activation='relu', kernel_initializer='normal')(f1)
         self.model = Model(inputs,coutput)
+        
+    def select_event(self,evt_number, evt_time, S1, S2, Si):
+        evt       = NNEvent()
+        evt.event = evt_number
+        evt.time  = evt_time * 1e-3 # s
+
+        S1     = self.select_S1(S1)
+        S2, Si = self.select_S2(S2, Si)
+
+        if (not self.S1_Nmin <= len(S1) <= self.S1_Nmax or
+            not self.S2_Nmin <= len(S2) <= self.S2_Nmax):
+            return None
+
+        evt.nS1 = len(S1)
+        for peak_no, (t, e) in sorted(S1.items()):
+            evt.S1w.append(pmp.width(t))
+            evt.S1h.append(np.max(e))
+            evt.S1e.append(np.sum(e))
+            evt.S1t.append(t[np.argmax(e)])
+
+        evt.nS2 = len(S2)
+        for peak_no, (t, e) in sorted(S2.items()):
+            s2time  = t[np.argmax(e)]
+
+            evt.S2w.append(pmp.width(t, to_mus=True))
+            evt.S2h.append(np.max(e))
+            evt.S2e.append(np.sum(e))
+            evt.S2t.append(s2time)
+
+            IDs, Qs = pmp.integrate_charge(Si[peak_no])
+            xsipms  = self.xs[IDs]
+            ysipms  = self.ys[IDs]
+            x       = np.average(xsipms, weights=Qs)
+            y       = np.average(ysipms, weights=Qs)
+            q       = np.sum    (Qs)
+
+            evt.Nsipm.append(len(IDs))
+            evt.S2q  .append(q)
+
+            evt.X    .append(x)
+            evt.Y    .append(y)
+
+            evt.Xrms .append((np.sum(Qs * (xsipms-x)**2) / (q - 1))**0.5)
+            evt.Yrms .append((np.sum(Qs * (ysipms-y)**2) / (q - 1))**0.5)
+
+            evt.R    .append((x**2 + y**2)**0.5)
+            evt.Phi  .append(np.arctan2(y, x))
+
+            dt  = s2time - evt.S1t[0] if len(evt.S1t) > 0 else -1e3
+            dt *= units.ns  / units.mus
+            evt.DT   .append(dt)
+            evt.Z    .append(dt * units.mus * self.drift_v)        
+
 
 
     def build_XY(self, nmax):
@@ -351,6 +404,55 @@ class Olinda(KerasDNNCity):
         Run the machine
         nmax is the max number of events to run
         """
+
+        nevt_in = nevt_out = 0
+
+        with Kr_writer(self.output_file, "DST", "w",
+                       self.compression, "Events") as write:
+
+            exit_file_loop = False
+            for filename in self.input_files:
+                print("Reading {}".format(filename), end="... ")
+
+                try:
+                    S1s, S2s, S2Sis = load_pmaps(filename)
+                except (ValueError, tb.exceptions.NoSuchNodeError):
+                    print("Empty file. Skipping.")
+                    continue
+
+                event_numbers, timestamps = get_event_numbers_and_timestamps(filename)
+                for evt_number, evt_time in zip(event_numbers, timestamps):
+                    nevt_in +=1
+
+                    S1 = S1s  .get(evt_number, {})
+                    S2 = S2s  .get(evt_number, {})
+                    Si = S2Sis.get(evt_number, {})
+
+                    evt = self.select_event(evt_number, evt_time,
+                                            S1, S2, Si)
+
+                    if evt:
+                        nevt_out += 1
+                        write(evt)
+
+                    if not nevt_in % self.nprint:
+                        print("{} evts analyzed".format(nevt_in))
+
+                    if nevt_in >= max_evt:
+                        exit_file_loop = True
+                        break
+
+                print("OK")
+                if exit_file_loop:
+                    break
+
+
+        print(textwrap.dedent("""
+                              Number of events in : {}
+                              Number of events out: {}
+                              Ratio               : {}
+                              """.format(nevt_in, nevt_out, nevt_out/nevt_in)))
+        return nevt_in, nevt_out, nevt_in/nevt_out
 
         # build the X,Y data
         self.build_XY(nmax)
