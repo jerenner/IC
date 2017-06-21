@@ -38,16 +38,6 @@ from   invisible_cities.reco.tbl_functions     import get_event_numbers_and_time
 from   invisible_cities.filters.s1s2_filter    import s1s2_filter
 from   invisible_cities.filters.s1s2_filter    import S12Selector
 
-#from   .. core                  import fit_functions        as fitf
-#from   .. core.log_config       import logger
-#from   .. core.configure        import configure
-#from   .. core.dnn_functions    import read_xyz_labels
-#from   .. core.dnn_functions    import read_pmaps
-#from   .  base_cities           import KerasDNNCity
-#from   .. reco.dst_io           import XYcorr_writer
-#
-#from   .. reco.corrections      import Correction
-
 class Olinda(KerasDNNCity):
     """
     The city of OLINDA performs the DNN analysis for point reconstruction.
@@ -80,7 +70,10 @@ class Olinda(KerasDNNCity):
         - a subset of this MC dataset can be used in 'test' mode to verify
         that the net has been properly trained
         - real data can be input in 'eval' mode and the (x,y) predictions
-        saved
+        saved; most likely this mode will not be used in the actual analysis,
+        rather the trained weights will likely be used to call the NN from
+        another city when (x,y) coordinates must be reconstructed from single
+        SiPM maps
 
     A summary of the key inputs to the configuration file:
         - FILE_IN: a list of input files
@@ -102,7 +95,6 @@ class Olinda(KerasDNNCity):
         - NEVENTS: the number of events to be read
 
     """
-
     def __init__(self,
                  run_number  = 0,
                  files_in    = None,
@@ -200,17 +192,14 @@ class Olinda(KerasDNNCity):
         self.X_in, self.Y_in = read_dnn_datafile(self.dnn_datafile,nmax,self.mode)
         if(nevt_in == -1):
             nevt_in = len(self.X_in)
-        
-        print("-- X_in shape is {0}".format(self.X_in.shape))
-        print("-- Max X is {0}".format(np.max(self.X_in)))
-        print("-- Min X is {0}".format(np.min(self.X_in)))
-        
+
         self.build_model()
         if(self.mode == 'train' or self.mode == 'retrain'):
             self.train(nbatch=40,nepochs=100)
         else:
             prediction = self.evaluate()
-            
+            print(prediction)
+
         return nevt_in, nevt_out
 
     def _file_loop(self, write_kr, nmax):
@@ -237,9 +226,9 @@ class Olinda(KerasDNNCity):
                     
                 for e1,e2 in zip(event_numbers,levt_numbers):
                     if(e1 != e2):
-                        print("ERROR: Mismatch in event numbers e1 = {0}, e2 = {1}.".format(e1,e2))
+                        print("ERROR: Mismatch in event numbers e1 = {}, e2 = {}.".format(e1,e2))
                         exit()
-                print("Found {0} labels for {1} maps".format(len(levt_numbers),len(event_numbers)))
+                print("Found {} labels for {} maps".format(len(levt_numbers),len(event_numbers)))
 
             nevt_in, nevt_out, max_events_reached = self._event_loop(
                 event_numbers, labels, nmax, nevt_in, nevt_out, write_kr, S1s, S2s, S2Sis)
@@ -293,8 +282,7 @@ class Olinda(KerasDNNCity):
         return evt
 
     def build_DNN_FC(self):
-        """Builds a fully-connected neural network.
-        """
+        
         self.model = Sequential()
         self.model.add(Flatten(input_shape=(48,48,1)))
         self.model.add(Dense(units=64, activation='relu'))
@@ -304,8 +292,7 @@ class Olinda(KerasDNNCity):
         self.model.add(Dense(units=2,    activation='relu'))
 
     def build_DNN_conv2D(self):
-        """Builds a 2D-convolutional neural network.
-        """
+
         inputs = Input(shape=(48, 48, 1))
         cinputs = Conv2D(32, (4, 4), padding='same', strides=(4, 4), activation='relu', kernel_initializer='normal')(inputs)
         cinputs = AveragePooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', data_format=None)(cinputs)
@@ -334,20 +321,16 @@ class Olinda(KerasDNNCity):
         """
 
         weights_exist = os.path.isfile(self.weights_file)
-
-        # build the model if no weights exist or mode is 'retrain'
         if(self.mode == 'retrain' or (self.mode == 'train' and not weights_exist)):
             self.build_DNN_FC()
             self.model.compile(loss=self.loss_type, optimizer=self.optimizer,
                                metrics=['accuracy'])
             self.model.summary()
-
-        # otherwise read in the existing weights
         elif(weights_exist):
-            logger.info("Loading model from {0}".format(self.weights_file))
+            print("Loading model from {}".format(self.weights_file))
             self.model = load_model(self.weights_file)
         else:
-            logger.error("ERROR: invalid state in function build_model")
+            print("ERROR: invalid state in function build_model")
 
     def check_evt(self,evt_num,ept=None):
         """Plots the event with number evt_num
@@ -400,13 +383,15 @@ class Olinda(KerasDNNCity):
         plt.savefig("{0}/evt_{1}.png".format(self.temp_dir,evt_num))
 
 def OLINDA(argv = sys.argv):
-    """OLINDA DRIVER"""
+
+    # get parameters dictionary
     CFP = configure(argv)
 
     files_in    = glob(CFP.FILE_IN)
     files_in.sort()
     print("input files = {0}".format(files_in))
 
+    #class instance
     fpp = Olinda(run_number  = CFP.RUN_NUMBER,
                  files_in    = files_in,
                  file_out    = CFP.FILE_OUT,

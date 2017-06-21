@@ -420,8 +420,8 @@ class NNEvent:
             return
         self.event   = -1
 
-        self.map48x48 = np.zeros([48,48],dtype=np.float16)
-        self.label    = np.zeros(2,dtype=np.float16)
+        self.map48x48 = np.zeros([48,48],dtype=np.float32)
+        self.label    = np.zeros(2,dtype=np.float32)
 
     def __str__(self):
         s = "{0}Event\n{0}".format("#"*20 + "\n")

@@ -482,7 +482,6 @@ class DNNCity(City):
         model     - the Keras model describing the network
         opt       - the optimizer type to be used in training
     """
-
     def __init__(self,
                  run_number  = 0,
                  files_in    = None,
@@ -526,55 +525,14 @@ class DNNCity(City):
         for ID, x, y in zip(range(1792), xs, ys):
             self.id_to_coords[np.int32(ID)] = np.array([x, y])
 
-    def build_XY(self):
-        """Builds the arrays X_in and Y_in. To be implemented in a subclass."""
-        raise NotImplementedError
-
     def build_model(self):
-        """Builds the Keras model. To be implemented in a subclass."""
         raise NotImplementedError
 
     def train(self,nepochs=10,nbatch=64,fval=0.05):
-        """Run the training step for the model that was setup"""
         raise NotImplementedError
 
     def evaluate(self):
-        """Evaluates the input data using the trained DNN"""
         raise NotImplementedError
-
-#    config_file_format = City.config_file_format + """
-#    # paths and input/output
-#    TEMP_DIR {TEMP_DIR}
-#    WEIGHTS_FILE {WEIGHTS_FILE}
-#    DNN_DATAFILE {DNN_DATAFILE}
-#
-#    # DNNCity
-#    RUN_NUMBER {RUN_NUMBER}
-#    MODE {MODE}
-#    OPT {OPT}
-#    LRATE {LRATE}
-#    DECAY {DECAY}
-#    LOSS {LOSS}
-#
-#    # run
-#    NEVENTS {NEVENTS}
-#    RUN_ALL {RUN_ALL}"""
-#
-#    config_file_format = dedent(config_file_format)
-#
-#    default_config = merge_two_dicts(
-#        City.default_config,
-#        dict(RUN_NUMBER   = 0,
-#             TEMP_DIR     = '$ICDIR/database/test_data',
-#             WEIGHTS_FILE = None,
-#             DNN_DATAFILE = None,
-#             MODE         = 'test',
-#             OPT          = 'nadam',
-#             LRATE        = 0.001,
-#             DECAY        = 0.001,
-#             LOSS         = 'mse',
-#             NEVENTS      = 5,
-#             RUN_ALL      = False))
 
 
 class KerasDNNCity(DNNCity):
@@ -616,22 +574,14 @@ class KerasDNNCity(DNNCity):
                                               beta_2=0.999, epsilon=1e-08,
                                               schedule_decay=self.sch_decay)
         else:
-            print("Setting SGD opt")
             self.optimizer = keras.optimizers.SGD(lr=self.lrate,
                                             decay=self.sch_decay)
 
-    def build_XY(self):
-        """Builds the arrays X_in and Y_in. To be implemented in a subclass."""
-        raise NotImplementedError
-
     def build_model(self):
-        """Builds the Keras model. To be implemented in a subclass."""
         raise NotImplementedError
 
     def train(self,nepochs=10,nbatch=64,fval=0.05):
-        """Run the training step for the model that was setup"""
-
-        # set up the callbacks
+        
         file_lbl = "{epoch:02d}-{loss:.4f}"
         filepath="{0}/weights-{1}.h5".format(self.temp_dir,file_lbl)
         checkpoint = keras.callbacks.ModelCheckpoint(filepath, monitor='loss', verbose=0, save_best_only=True, mode='min')
@@ -641,12 +591,7 @@ class KerasDNNCity(DNNCity):
         self.model.fit(self.X_in, self.Y_in, nb_epoch=nepochs, batch_size=nbatch, callbacks=callbacks_list, validation_split=fval, shuffle=True)
 
     def evaluate(self):
-        """Evaluates the input data using the trained DNN"""
 
         prediction = self.model.predict(self.X_in,verbose=2)
-
-        # print test results if true information is given
-        #if(len(self.Y_in) == len(self.X_in)):
-        #    loss_and_metrics = self.model.evaluate(self.X_in, self.Y_in)
 
         return prediction
