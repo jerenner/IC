@@ -412,3 +412,28 @@ class PersistentKrEvent(KrEvent):
             row["Xrms" ] = self.Xrms [i]
             row["Yrms" ] = self.Yrms [i]
             row.append()
+
+class NNEvent:
+    def __init__(self, other = None):
+        if other is not None:
+            self.copy(other)
+            return
+        self.event   = -1
+
+        self.map48x48 = np.zeros([48,48],dtype=np.float16)
+        self.label    = np.zeros(2,dtype=np.float16)
+
+    def __str__(self):
+        s = "{0}Event\n{0}".format("#"*20 + "\n")
+        for attr in self.__dict__:
+            s += "{}: {}\n".format(attr, getattr(self, attr))
+        return s
+
+    def copy(self, other):
+        assert isinstance(other, NNEvent)
+        for attr in other.__dict__:
+            setattr(self, attr, getattr(other, attr))
+
+    def store(self, ea_maps, ea_labels):
+        ea_maps.append([self.map48x48])
+        ea_labels.append([self.label])

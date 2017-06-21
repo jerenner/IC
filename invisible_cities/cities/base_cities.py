@@ -542,39 +542,39 @@ class DNNCity(City):
         """Evaluates the input data using the trained DNN"""
         raise NotImplementedError
 
-    config_file_format = City.config_file_format + """
-    # paths and input/output
-    TEMP_DIR {TEMP_DIR}
-    WEIGHTS_FILE {WEIGHTS_FILE}
-    DNN_DATAFILE {DNN_DATAFILE}
-
-    # DNNCity
-    RUN_NUMBER {RUN_NUMBER}
-    MODE {MODE}
-    OPT {OPT}
-    LRATE {LRATE}
-    DECAY {DECAY}
-    LOSS {LOSS}
-
-    # run
-    NEVENTS {NEVENTS}
-    RUN_ALL {RUN_ALL}"""
-
-    config_file_format = dedent(config_file_format)
-
-    default_config = merge_two_dicts(
-        City.default_config,
-        dict(RUN_NUMBER   = 0,
-             TEMP_DIR     = '$ICDIR/database/test_data',
-             WEIGHTS_FILE = None,
-             DNN_DATAFILE = None,
-             MODE         = 'test',
-             OPT          = 'nadam',
-             LRATE        = 0.001,
-             DECAY        = 0.001,
-             LOSS         = 'mse',
-             NEVENTS      = 5,
-             RUN_ALL      = False))
+#    config_file_format = City.config_file_format + """
+#    # paths and input/output
+#    TEMP_DIR {TEMP_DIR}
+#    WEIGHTS_FILE {WEIGHTS_FILE}
+#    DNN_DATAFILE {DNN_DATAFILE}
+#
+#    # DNNCity
+#    RUN_NUMBER {RUN_NUMBER}
+#    MODE {MODE}
+#    OPT {OPT}
+#    LRATE {LRATE}
+#    DECAY {DECAY}
+#    LOSS {LOSS}
+#
+#    # run
+#    NEVENTS {NEVENTS}
+#    RUN_ALL {RUN_ALL}"""
+#
+#    config_file_format = dedent(config_file_format)
+#
+#    default_config = merge_two_dicts(
+#        City.default_config,
+#        dict(RUN_NUMBER   = 0,
+#             TEMP_DIR     = '$ICDIR/database/test_data',
+#             WEIGHTS_FILE = None,
+#             DNN_DATAFILE = None,
+#             MODE         = 'test',
+#             OPT          = 'nadam',
+#             LRATE        = 0.001,
+#             DECAY        = 0.001,
+#             LOSS         = 'mse',
+#             NEVENTS      = 5,
+#             RUN_ALL      = False))
 
 
 class KerasDNNCity(DNNCity):

@@ -8,6 +8,7 @@ import tables as tb
 import os
 import matplotlib.pyplot as plt
 from matplotlib.patches         import Ellipse
+import textwrap
 
 from keras.models               import Model
 from keras.models               import load_model
@@ -20,15 +21,21 @@ from keras.layers.convolutional import Conv2D
 from keras.layers.convolutional import AveragePooling2D
 from keras.layers.core          import Flatten
 
-from   invisible_cities.core                  import fit_functions        as fitf
 from   invisible_cities.core.log_config       import logger
 from   invisible_cities.core.configure        import configure
 from   invisible_cities.core.dnn_functions    import read_xyz_labels
-from   invisible_cities.core.dnn_functions    import read_pmaps
-from   invisible_cities.cities.base_cities           import KerasDNNCity
-from   invisible_cities.reco.dst_io           import XYcorr_writer
+from   invisible_cities.core.dnn_functions    import read_dnn_datafile
+from   invisible_cities.cities.base_cities    import KerasDNNCity
 
-from   invisible_cities.reco.corrections      import Correction
+from   invisible_cities.io.dnn_io              import dnn_writer
+from   invisible_cities.reco.event_model       import NNEvent
+
+from   invisible_cities.reco                   import tbl_functions   as tbl
+from   invisible_cities.reco.pmaps_functions   import load_pmaps
+from   invisible_cities.reco.tbl_functions     import get_event_numbers_and_timestamps_from_file_name
+
+from   invisible_cities.filters.s1s2_filter    import s1s2_filter
+from   invisible_cities.filters.s1s2_filter    import S12Selector
 
 #from   .. core                  import fit_functions        as fitf
 #from   .. core.log_config       import logger
@@ -109,7 +116,29 @@ class Olinda(KerasDNNCity):
                  loss_type   = 'mse',
                  opt         = 'nadam',
                  mode        = 'eval',
-                 lifetime    = 1000):
+                 lifetime    = 1000,
+                 max_slices  = 3,
+                 tbin_slice  = 10000,
+                 
+                 S1_Emin     = 0,
+                 S1_Emax     = 10000,
+                 S1_Lmin     = 4,
+                 S1_Lmax     = 20,
+                 S1_Hmin     = 0,
+                 S1_Hmax     = 1000,
+                 S1_Ethr     = 0.5,
+
+                 S2_Nmin     = 1,
+                 S2_Nmax     = 1,
+                 S2_Emin     = 1000,
+                 S2_Emax     = 1000000,
+                 S2_Lmin     = 1,
+                 S2_Lmax     = 1000,
+                 S2_Hmin     = 0,
+                 S2_Hmax     = 100000,
+                 S2_NSIPMmin = 0,
+                 S2_NSIPMmax = 1000,
+                 S2_Ethr     = 1):
         """
         Init the machine with the run number.
         Load the data base to access calibration and geometry.
@@ -128,7 +157,137 @@ class Olinda(KerasDNNCity):
                                    loss_type       = loss_type,
                                    opt             = opt,
                                    mode            = mode)
-        self.lifetime = lifetime
+        self.lifetime = lifetime   
+        self._s1s2_selector = S12Selector(S1_Nmin     = 1,
+                                          S1_Nmax     = 1,
+                                          S1_Emin     = S1_Emin,
+                                          S1_Emax     = S1_Emax,
+                                          S1_Lmin     = S1_Lmin,
+                                          S1_Lmax     = S1_Lmax,
+                                          S1_Hmin     = S1_Hmin,
+                                          S1_Hmax     = S1_Hmax,
+                                          S1_Ethr     = S1_Ethr,
+
+                                          S2_Nmin     = 1,
+                                          S2_Nmax     = S2_Nmax,
+                                          S2_Emin     = S2_Emin,
+                                          S2_Emax     = S2_Emax,
+                                          S2_Lmin     = S2_Lmin,
+                                          S2_Lmax     = S2_Lmax,
+                                          S2_Hmin     = S2_Hmin,
+                                          S2_Hmax     = S2_Hmax,
+                                          S2_NSIPMmin = S2_NSIPMmin,
+                                          S2_NSIPMmax = S2_NSIPMmax,
+                                          S2_Ethr     = S2_Ethr)
+
+    def run(self, nmax):
+        self.display_IO_info(nmax)
+        
+        nevt_in = -1; nevt_out = -1
+        if(not os.path.isfile(self.dnn_datafile)):
+            with tb.open_file(self.output_file, "w",
+                              filters = tbl.filters(self.compression)) as h5out:
+    
+                write_dnn = dnn_writer(h5out)
+    
+                nevt_in, nevt_out = self._file_loop(write_dnn, nmax)
+                print(textwrap.dedent("""
+                                  Number of events in : {}
+                                  Number of events out: {}
+                                  Ratio               : {}
+                                  """.format(nevt_in, nevt_out, nevt_out / nevt_in)))
+
+        self.X_in, self.Y_in = read_dnn_datafile(self.dnn_datafile)
+        if(nevt_in == -1):
+            nevt_in = len(self.X_in)
+        
+        print("-- X_in shape is {0}".format(self.X_in.shape))
+        print("-- Max X is {0}".format(np.max(self.X_in)))
+        print("-- Min X is {0}".format(np.min(self.X_in)))
+        
+        self.build_model()
+        if(self.mode == 'train' or self.mode == 'retrain'):
+            self.train(nbatch=40,nepochs=100)
+        else:
+            prediction = self.evaluate()
+            
+        return nevt_in, nevt_out
+
+    def _file_loop(self, write_kr, nmax):
+        nevt_in = nevt_out = 0
+
+        for filename in self.input_files:
+            print("Opening {filename}".format(**locals()), end="... ")
+
+            try:
+                S1s, S2s, S2Sis = load_pmaps(filename)
+            except (ValueError, tb.exceptions.NoSuchNodeError):
+                print("Empty file. Skipping.")
+                continue
+
+            event_numbers, timestamps = get_event_numbers_and_timestamps_from_file_name(filename)
+            labels = None
+            if(self.mode == 'test' or self.mode == 'train' or self.mode == 'retrain'):
+
+                print("Reading labels...")
+                labels, levt_numbers = read_xyz_labels(self.input_files,nmax,event_numbers)
+                if(len(event_numbers) != len(levt_numbers)):
+                    print("ERROR: number of labels does not match number of events")
+                    exit()
+                    
+                for e1,e2 in zip(event_numbers,levt_numbers):
+                    if(e1 != e2):
+                        print("ERROR: Mismatch in event numbers e1 = {0}, e2 = {1}.".format(e1,e2))
+                        exit()
+                print("Found {0} labels for {1} maps".format(len(levt_numbers),len(event_numbers)))
+
+            nevt_in, nevt_out, max_events_reached = self._event_loop(
+                event_numbers, labels, nmax, nevt_in, nevt_out, write_kr, S1s, S2s, S2Sis)
+
+            if max_events_reached:
+                print('Max events reached')
+                break
+            else:
+                print("OK")
+
+        return nevt_in, nevt_out
+
+    def _event_loop(self, event_numbers, labels, nmax, nevt_in, nevt_out, write_dnn, S1s, S2s, S2Sis):
+        max_events_reached = False
+        for evt_number, evt_label in zip(event_numbers, labels):
+            nevt_in += 1
+            if self.max_events_reached(nmax, nevt_in):
+                max_events_reached = True
+                break
+            S1 = S1s  .get(evt_number, {})
+            S2 = S2s  .get(evt_number, {})
+            Si = S2Sis.get(evt_number, {})
+
+            if not s1s2_filter(self._s1s2_selector, S1, S2, Si):
+                continue
+            nevt_out += 1
+
+            evt = self._create_NN_event(evt_number, evt_label, S2, Si)
+            write_dnn(evt)
+
+            self.conditional_print(evt, nevt_in)
+
+        return nevt_in, nevt_out, max_events_reached
+
+    def _create_NN_event(self, evt_number, evt_label, S2, Si):
+
+        evt = NNEvent()
+        evt.event = evt_number
+        for peak_no, (t, e) in sorted(S2.items()):
+            
+            si = Si[peak_no]
+            for sipm_no,sipm_q in si.items():
+                [i, j] = (self.id_to_coords[sipm_no] + 235) / 10
+                evt.map48x48[np.int8(i),np.int8(j)] += np.sum(sipm_q)
+                
+        evt.map48x48 /= np.sum(evt.map48x48)
+        evt.label[:] = evt_label
+        return evt
 
     def build_DNN_FC(self):
         """Builds a fully-connected neural network.
@@ -160,168 +319,6 @@ class Olinda(KerasDNNCity):
         coutput = Dense(units=2, activation='relu', kernel_initializer='normal')(f1)
         self.model = Model(inputs,coutput)
         
-    def select_event(self,evt_number, evt_time, S1, S2, Si):
-        evt       = NNEvent()
-        evt.event = evt_number
-        evt.time  = evt_time * 1e-3 # s
-
-        S1     = self.select_S1(S1)
-        S2, Si = self.select_S2(S2, Si)
-
-        if (not self.S1_Nmin <= len(S1) <= self.S1_Nmax or
-            not self.S2_Nmin <= len(S2) <= self.S2_Nmax):
-            return None
-
-        evt.nS1 = len(S1)
-        for peak_no, (t, e) in sorted(S1.items()):
-            evt.S1w.append(pmp.width(t))
-            evt.S1h.append(np.max(e))
-            evt.S1e.append(np.sum(e))
-            evt.S1t.append(t[np.argmax(e)])
-
-        evt.nS2 = len(S2)
-        for peak_no, (t, e) in sorted(S2.items()):
-            s2time  = t[np.argmax(e)]
-
-            evt.S2w.append(pmp.width(t, to_mus=True))
-            evt.S2h.append(np.max(e))
-            evt.S2e.append(np.sum(e))
-            evt.S2t.append(s2time)
-
-            IDs, Qs = pmp.integrate_charge(Si[peak_no])
-            xsipms  = self.xs[IDs]
-            ysipms  = self.ys[IDs]
-            x       = np.average(xsipms, weights=Qs)
-            y       = np.average(ysipms, weights=Qs)
-            q       = np.sum    (Qs)
-
-            evt.Nsipm.append(len(IDs))
-            evt.S2q  .append(q)
-
-            evt.X    .append(x)
-            evt.Y    .append(y)
-
-            evt.Xrms .append((np.sum(Qs * (xsipms-x)**2) / (q - 1))**0.5)
-            evt.Yrms .append((np.sum(Qs * (ysipms-y)**2) / (q - 1))**0.5)
-
-            evt.R    .append((x**2 + y**2)**0.5)
-            evt.Phi  .append(np.arctan2(y, x))
-
-            dt  = s2time - evt.S1t[0] if len(evt.S1t) > 0 else -1e3
-            dt *= units.ns  / units.mus
-            evt.DT   .append(dt)
-            evt.Z    .append(dt * units.mus * self.drift_v)        
-
-
-
-    def build_XY(self, nmax):
-        """Builds the inputs and labels for a maximum of nmax events.
-
-        The inputs will be placed in the vector X_in and the corresponding
-        labels in the vector Y_in.  The corresponding event energies will be
-        placed in the vector E_in.
-
-        X_in has shape [Nevts, 48, 48 , 1]
-        Y_in has shape [Nevts, 2]
-        E_in has shape [Nevts, 1]
-        """
-        print(type(self.dnn_datafile))
-        print(self.dnn_datafile)
-        print("data file is {0}".format(os.path.isfile(self.dnn_datafile)))
-        # construct the DNN data files if they do not yet exist for this run
-        if(not os.path.isfile(self.dnn_datafile)):
-
-            # read the pmaps from the input files
-            maps, energies, drift_times, evt_numbers = read_pmaps(self.input_files, nmax,
-                                                     self.id_to_coords,
-                                                     3, 10000)
-
-            # read the (x,y) labels from the input files if this is training
-            if(self.mode == 'test' or self.mode == 'train' or self.mode == 'retrain'):
-
-                logger.info("Reading labels...")
-                labels, levt_numbers = read_xyz_labels(self.input_files,nmax,evt_numbers)
-
-                # check to ensure the event numbers match
-                for e1,e2 in zip(evt_numbers,levt_numbers):
-                    if(e1 != e2):
-                        logger.error("ERROR: Mismatch in event numbers e1 = {0}, e2 = {1}.".format(e1,e2))
-                        exit()
-                logger.info("Found {0} labels for {1} maps".format(len(levt_numbers),len(evt_numbers)))
-
-            # add all slices to a single 2D projection and normalize
-            sum_maps = np.zeros((len(maps), 48, 48))
-            sum_energies = np.zeros((len(maps),1))
-            for iw, (wmap,emap) in enumerate(zip(maps,energies)):
-                sum_energies[iw] = [np.sum(emap)]
-                sum_maps[iw,:,:] = np.sum(wmap,axis=2)
-                msum = np.sum(sum_maps[iw,:,:])
-                if(msum != 0):
-                    sum_maps[iw,:,:] /= msum
-
-            # save to a file
-            f = tb.open_file(self.dnn_datafile, 'w')
-            filters = tb.Filters(complib='blosc', complevel=9, shuffle=False)
-            atom    = tb.Atom.from_dtype(sum_maps.dtype)
-            tmaps   = f.create_earray(f.root, 'maps', atom, (0, 48, 48), filters=filters)
-            for i in range(len(sum_maps)):
-                tmaps.append([sum_maps[i]])
-            atom    = tb.Atom.from_dtype(sum_energies.dtype)
-            tenergies   = f.create_earray(f.root, 'energies', atom, (0, 1), filters=filters)
-            for i in range(len(sum_energies)):
-                tenergies.append([sum_energies[i]])
-            dt_arr = np.reshape(drift_times,[len(drift_times),1])
-            atom    = tb.Atom.from_dtype(dt_arr.dtype)
-            ttimes   = f.create_earray(f.root, 'times', atom, (0, 1), filters=filters)
-            for i in range(len(dt_arr)):
-                ttimes.append([dt_arr[i]])
-
-            if(self.mode == 'train' or self.mode == 'retrain' or self.mode == 'test'):
-                atom    = tb.Atom.from_dtype(labels.dtype)
-                tcoords = f.create_earray(f.root, 'coords', atom, (0, 3), filters=filters)
-                for i in range(len(labels)):
-                    tcoords.append([labels[i]])
-
-            f.close()
-
-        # otherwise, read in the data and labels from the file
-        else:
-            indata = tb.open_file(self.dnn_datafile, 'r')
-            if(nmax > 0):
-                in_maps = indata.root.maps[0:nmax]
-                in_energies = indata.root.energies[0:nmax]
-                in_times = indata.root.times[0:nmax]
-                
-                if(self.mode == 'train' or self.mode == 'retrain' or self.mode == 'test'):
-                    in_coords = indata.root.coords[0:nmax]
-            else:
-                in_maps = indata.root.maps
-                in_energies = indata.root.energies
-                in_times = indata.root.times
-                
-                if(self.mode == 'train' or self.mode == 'retrain' or self.mode == 'test'):
-                    in_coords = indata.root.coords
-                    
-            sum_maps = np.reshape(in_maps,(len(in_maps), 48, 48))
-            sum_energies = np.array(in_energies,dtype=np.float32)
-            drift_times = np.array(in_times,dtype=np.float32)
-            
-            if(self.mode == 'train' or self.mode == 'retrain' or self.mode == 'test'):
-                labels = np.array(in_coords,dtype=np.float32)
-            indata.close()
-
-        self.X_in = np.reshape(sum_maps, (len(sum_maps), 48, 48, 1))
-        self.E_in = sum_energies
-        self.T_in = drift_times
-        if(self.mode == 'test' or self.mode == 'train' or self.mode == 'retrain'):
-            self.Y_in = labels[:,:2]/400. + 0.5
-        else:
-            self.Y_in = None
-
-        logger.info("-- X_in shape is {0}".format(self.X_in.shape))
-        logger.info("-- Max X is {0}".format(np.max(self.X_in)))
-        logger.info("-- Min X is {0}".format(np.min(self.X_in)))
-
     def build_model(self):
         """Constructs or reads in the DNN model to be trained.
 
@@ -399,153 +396,6 @@ class Olinda(KerasDNNCity):
 
         plt.savefig("{0}/evt_{1}.png".format(self.temp_dir,evt_num))
 
-    def run(self, nmax):
-        """
-        Run the machine
-        nmax is the max number of events to run
-        """
-
-        nevt_in = nevt_out = 0
-
-        with Kr_writer(self.output_file, "DST", "w",
-                       self.compression, "Events") as write:
-
-            exit_file_loop = False
-            for filename in self.input_files:
-                print("Reading {}".format(filename), end="... ")
-
-                try:
-                    S1s, S2s, S2Sis = load_pmaps(filename)
-                except (ValueError, tb.exceptions.NoSuchNodeError):
-                    print("Empty file. Skipping.")
-                    continue
-
-                event_numbers, timestamps = get_event_numbers_and_timestamps(filename)
-                for evt_number, evt_time in zip(event_numbers, timestamps):
-                    nevt_in +=1
-
-                    S1 = S1s  .get(evt_number, {})
-                    S2 = S2s  .get(evt_number, {})
-                    Si = S2Sis.get(evt_number, {})
-
-                    evt = self.select_event(evt_number, evt_time,
-                                            S1, S2, Si)
-
-                    if evt:
-                        nevt_out += 1
-                        write(evt)
-
-                    if not nevt_in % self.nprint:
-                        print("{} evts analyzed".format(nevt_in))
-
-                    if nevt_in >= max_evt:
-                        exit_file_loop = True
-                        break
-
-                print("OK")
-                if exit_file_loop:
-                    break
-
-
-        print(textwrap.dedent("""
-                              Number of events in : {}
-                              Number of events out: {}
-                              Ratio               : {}
-                              """.format(nevt_in, nevt_out, nevt_out/nevt_in)))
-        return nevt_in, nevt_out, nevt_in/nevt_out
-
-        # build the X,Y data
-        self.build_XY(nmax)
-
-        # build the Keras model for point reconstruction
-        self.build_model()
-
-        if(self.mode == 'train' or self.mode == 'retrain'):
-            self.train(nbatch=40,nepochs=100)
-        else:
-            prediction = self.evaluate()
-
-            X = np.zeros(len(prediction))
-            Y = np.zeros(len(prediction))
-            E = np.zeros(len(prediction))
-            T = np.zeros(len(prediction))
-            for i, (ypred,energy,tval) in enumerate(zip(prediction, self.E_in, self.T_in)):
-                
-                X[i] = ypred[0]*400 - 200
-                Y[i] = ypred[1]*400 - 200
-                E[i] = energy
-                T[i] = tval
-            
-            # correct the energies for lifetime
-            print("Times from min = {0} and max = {1}; and mean = {2}".format(np.min(T),np.max(T),np.mean(T)))
-            E_corr = np.zeros(len(prediction))
-            for i,(e,t) in enumerate(zip(E,T)):
-                E_corr[i] = e / np.exp(-t/1000/self.lifetime)
-
-            # apply cuts
-            Z = T/1000.
-            
-            # radial
-#            X_corr = X[X**2 + Y**2 < 1e4]
-#            Y_corr = Y[X**2 + Y**2 < 1e4]
-#            X = X_corr
-#            Y = Y_corr
-#            Z = Z[X**2 + Y**2 < 1e4]
-#            E_corr = E_corr[X**2 + Y**2 < 1e4]
-#            T = T[X**2 + Y**2 < 1e4]
-            
-            # z-range
-            X = X[(Z > 0) & (Z < 500)]
-            Y = Y[(Z > 0) & (Z < 500)]
-            E_corr = E_corr[(Z > 0) & (Z < 500)]
-            T = T[(Z > 0) & (Z < 500)]
-
-            # energy
-            X = X[(E_corr > 1000) & (E_corr < 13000)]
-            Y = Y[(E_corr > 1000) & (E_corr < 13000)]
-            T = T[(E_corr > 1000) & (E_corr < 13000)]
-            E_corr = E_corr[(E_corr > 1000) & (E_corr < 13000)]
-            print(X)
-            print(Y)
-            print(E_corr)
-
-            # create a Kr table
-            xs, ys, es, us = \
-            fitf.profileXY(X, Y, E_corr, 30, 30, [-215.,215.], [-215.,215.])
-
-            norm_index = xs.size//2, ys.size//2
-            xycorr = Correction((xs, ys), es, us, norm_strategy="index", index=norm_index)
-            nevt = np.histogram2d(X, Y, (30, 30), ([-215.,215.], [-215.,215.]))[0]
-
-            # Dump to file
-            with XYcorr_writer(self.output_file) as write:
-                write(*xycorr._xs, xycorr._fs, xycorr._us, nevt)
-                
-            # set up the figure
-            fig = plt.figure();
-            #ax1 = fig.add_subplot(111);
-            fig.set_figheight(15.0)
-            fig.set_figwidth(15.0)
-    
-            plt.hist(E_corr,bins=50)
-            plt.savefig("{0}/plt_energies_all.png".format(self.temp_dir))
-
-#            if(self.mode == 'test'):
-#                
-#                # print true vs. predicted if in test mode
-#                for ytrue,ypred in zip(self.Y_in, prediction):
-#                    xt = ytrue[0]*400 - 200
-#                    yt = ytrue[1]*400 - 200
-#                    xp = ypred[0]*400 - 200
-#                    yp = ypred[1]*400 - 200
-#
-#                    err = np.sqrt((xt - xp)**2 + (yt - yp)**2)
-#                    logger.info("true = ({0},{1}); predicted = ({2},{3}), err = {4}".format(xt,
-#                          yt,xp,yp,err))
-
-        return len(self.X_in)
-
-
 def OLINDA(argv = sys.argv):
     """OLINDA DRIVER"""
     CFP = configure(argv)
@@ -564,7 +414,8 @@ def OLINDA(argv = sys.argv):
                  lrate           = CFP.LRATE,
                  sch_decay       = CFP.DECAY,
                  loss_type       = CFP.LOSS,
-                 lifetime        = CFP.LIFETIME)
+                 lifetime        = CFP.LIFETIME,
+                 )
 
     fpp.set_output_file(CFP.FILE_OUT)
     fpp.set_compression(CFP.COMPRESSION)
