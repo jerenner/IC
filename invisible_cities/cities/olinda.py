@@ -444,13 +444,13 @@ def OLINDA(argv = sys.argv):
 
     t0 = time()
     nevts = CFP.NEVENTS if not CFP.RUN_ALL else -1
-    nevt = fpp.run(nmax=nevts)
+    nevt_in, nevt_out = fpp.run(nmax=nevts)
     t1 = time()
     dt = t1 - t0
 
-    print("run {} evts in {} s, time/event = {}".format(nevt, dt, dt / nevt))
+    print("run {} evts in {} s, time/event = {}".format(nevt_in, dt, dt / nevt_in))
 
-    return nevts, nevt
+    return nevts, nevt_in
 
 if __name__ == "__main__":
     OLINDA(sys.argv)

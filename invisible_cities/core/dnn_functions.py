@@ -78,7 +78,7 @@ def read_dnn_datafile(datafile,nmax,mode):
             if(mode == 'train' or mode == 'retrain' or mode == 'test'):
                 in_coords = indata.root.coords
                 
-        sum_maps = np.reshape(in_maps,(len(in_maps), 48, 48))
+        sum_maps = np.reshape(in_maps,(len(in_maps), 48, 48, 1))
         if(mode == 'train' or mode == 'retrain' or mode == 'test'):
             labels = np.array(in_coords,dtype=np.float32)
             
