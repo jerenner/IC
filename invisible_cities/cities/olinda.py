@@ -21,11 +21,12 @@ from keras.layers.convolutional import Conv2D
 from keras.layers.convolutional import AveragePooling2D
 from keras.layers.core          import Flatten
 
-from   invisible_cities.core.log_config       import logger
-from   invisible_cities.core.configure        import configure
-from   invisible_cities.core.dnn_functions    import read_xyz_labels
-from   invisible_cities.core.dnn_functions    import read_dnn_datafile
-from   invisible_cities.cities.base_cities    import KerasDNNCity
+from   invisible_cities.core.system_of_units_c import units
+from   invisible_cities.core.log_config        import logger
+from   invisible_cities.core.configure         import configure
+from   invisible_cities.core.dnn_functions     import read_xyz_labels
+from   invisible_cities.core.dnn_functions     import read_dnn_datafile
+from   invisible_cities.cities.base_cities     import KerasDNNCity
 
 from   invisible_cities.io.dnn_io              import dnn_writer
 from   invisible_cities.reco.event_model       import NNEvent
@@ -72,7 +73,6 @@ class Olinda(KerasDNNCity):
         for comparison with true values, which must also be given in the inputs
         - 'eval': predicts (x,y) values for a given set of input events (PMAPS)
         but unlike 'test' does not require that the true values are given
-        (this is the mode that would be applied to detector data)
 
     Thus in general the city will be used as follows:
         - a large MC dataset will be input in 'train' mode, and the weights
@@ -104,22 +104,23 @@ class Olinda(KerasDNNCity):
     """
 
     def __init__(self,
-                 run_number   = 0,
-                 files_in     = None,
-                 file_out     = None,
+                 run_number  = 0,
+                 files_in    = None,
+                 file_out    = None,
+                 nprint      = 10000,
+                 compression = "ZLIB4",
+
                  temp_dir     = 'database/test_data',
                  weights_file = 'weights.h5',
                  dnn_datafile = 'dnn_datafile.h5',
-                 nprint      = 10000,
                  lrate       = 0.01,
                  sch_decay   = 0.01,
                  loss_type   = 'mse',
                  opt         = 'nadam',
                  mode        = 'eval',
-                 lifetime    = 1000,
                  max_slices  = 3,
                  tbin_slice  = 10000,
-                 
+
                  S1_Emin     = 0,
                  S1_Emax     = 10000,
                  S1_Lmin     = 4,
@@ -157,7 +158,6 @@ class Olinda(KerasDNNCity):
                                    loss_type       = loss_type,
                                    opt             = opt,
                                    mode            = mode)
-        self.lifetime = lifetime   
         self._s1s2_selector = S12Selector(S1_Nmin     = 1,
                                           S1_Nmax     = 1,
                                           S1_Emin     = S1_Emin,
@@ -185,7 +185,7 @@ class Olinda(KerasDNNCity):
         
         nevt_in = -1; nevt_out = -1
         if(not os.path.isfile(self.dnn_datafile)):
-            with tb.open_file(self.output_file, "w",
+            with tb.open_file(self.dnn_datafile, "w",
                               filters = tbl.filters(self.compression)) as h5out:
     
                 write_dnn = dnn_writer(h5out)
@@ -197,7 +197,7 @@ class Olinda(KerasDNNCity):
                                   Ratio               : {}
                                   """.format(nevt_in, nevt_out, nevt_out / nevt_in)))
 
-        self.X_in, self.Y_in = read_dnn_datafile(self.dnn_datafile)
+        self.X_in, self.Y_in = read_dnn_datafile(self.dnn_datafile,nmax,self.mode)
         if(nevt_in == -1):
             nevt_in = len(self.X_in)
         
@@ -254,7 +254,11 @@ class Olinda(KerasDNNCity):
 
     def _event_loop(self, event_numbers, labels, nmax, nevt_in, nevt_out, write_dnn, S1s, S2s, S2Sis):
         max_events_reached = False
-        for evt_number, evt_label in zip(event_numbers, labels):
+        for ievt, evt_number in enumerate(event_numbers):
+            evt_label = None
+            if(labels):
+                evt_label = labels[ievt]
+                
             nevt_in += 1
             if self.max_events_reached(nmax, nevt_in):
                 max_events_reached = True
@@ -278,13 +282,12 @@ class Olinda(KerasDNNCity):
 
         evt = NNEvent()
         evt.event = evt_number
-        for peak_no, (t, e) in sorted(S2.items()):
-            
-            si = Si[peak_no]
+        for peak_no, si in sorted(Si.items()):
+
             for sipm_no,sipm_q in si.items():
                 [i, j] = (self.id_to_coords[sipm_no] + 235) / 10
                 evt.map48x48[np.int8(i),np.int8(j)] += np.sum(sipm_q)
-                
+
         evt.map48x48 /= np.sum(evt.map48x48)
         evt.label[:] = evt_label
         return evt
@@ -406,6 +409,10 @@ def OLINDA(argv = sys.argv):
 
     fpp = Olinda(run_number  = CFP.RUN_NUMBER,
                  files_in    = files_in,
+                 file_out    = CFP.FILE_OUT,
+                 compression = CFP.COMPRESSION,
+                 nprint      = CFP.NPRINT, 
+                 
                  temp_dir    = CFP.TEMP_DIR,
                  mode        = CFP.MODE,
                  weights_file = CFP.WEIGHTS_FILE,
@@ -414,12 +421,26 @@ def OLINDA(argv = sys.argv):
                  lrate           = CFP.LRATE,
                  sch_decay       = CFP.DECAY,
                  loss_type       = CFP.LOSS,
-                 lifetime        = CFP.LIFETIME,
-                 )
+                 
+                 S1_Emin     = CFP.S1_EMIN * units.pes,
+                 S1_Emax     = CFP.S1_EMAX * units.pes,
+                 S1_Lmin     = CFP.S1_LMIN,
+                 S1_Lmax     = CFP.S1_LMAX,
+                 S1_Hmin     = CFP.S1_HMIN * units.pes,
+                 S1_Hmax     = CFP.S1_HMAX * units.pes,
+                 S1_Ethr     = CFP.S1_ETHR * units.pes,
 
-    fpp.set_output_file(CFP.FILE_OUT)
-    fpp.set_compression(CFP.COMPRESSION)
-    fpp.set_print(nprint = CFP.NPRINT)
+                 S2_Nmax     = CFP.S2_NMAX,
+                 S2_Emin     = CFP.S2_EMIN * units.pes,
+                 S2_Emax     = CFP.S2_EMAX * units.pes,
+                 S2_Lmin     = CFP.S2_LMIN,
+                 S2_Lmax     = CFP.S2_LMAX,
+                 S2_Hmin     = CFP.S2_HMIN * units.pes,
+                 S2_Hmax     = CFP.S2_HMAX * units.pes,
+                 S2_NSIPMmin = CFP.S2_NSIPMMIN,
+                 S2_NSIPMmax = CFP.S2_NSIPMMAX,
+                 S2_Ethr     = CFP.S2_ETHR * units.pes
+                 )
 
     t0 = time()
     nevts = CFP.NEVENTS if not CFP.RUN_ALL else -1
