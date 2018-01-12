@@ -12,20 +12,20 @@ import tconfig as cfg
 # read nexus information into a collection of MC hits
 mchits = read_nexus(cfg.nexus_file, cfg.Nevts, cfg.Nstart)
 
-# create voxels from the MC hits
-voxels = create_voxels(mchits,cfg.vox_size,
-                       cgf.detector_range, cfg.center_voxels)
-
 # apply diffusion and smearing
-dvoxels = diffuse_and_smear_voxels(voxels, cfg.diff_transv,
+dhits = diffuse_and_smear_hits(mchits, cfg.diff_transv,
                                    cfg.diff_long, cfg.resolution_FWHM)
+
+# create voxels from the MC hits
+voxels = create_voxels(dhits,cfg.vox_size,
+                       cfg.detector_range, cfg.center_voxels)
 
 # write voxels to HDF5 if the option is set
 if(cfg.write_voxels):
-    write_voxels(dvoxels)
+    write_voxels(voxels)
 
 # cast light on SiPM plane
-sipm_plane = simulate_tracking_plane(dvoxels, light_func, cfg.zbins_voxels)
+sipm_plane = simulate_tracking_plane(voxels, light_func, cfg.zbins_voxels)
 
 # save the SiPM waveforms
 write_waveforms(sipm_plane)
