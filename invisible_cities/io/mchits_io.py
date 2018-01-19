@@ -16,10 +16,11 @@ def load_mchits(file_name: str, max_events:int =1e+9) -> Mapping[int, MCHit]:
 
 
 def load_mchits_nexus(file_name: str,
+                      event_range,
                       max_events:int =1e+9) -> Mapping[int, MCHit]:
 
     h5f = h5py.File(file_name, 'r')
-    mcevents = read_mctracks_nexus(h5f, max_events)
+    mcevents = read_mctracks_nexus(h5f, event_range, max_events)
     mchits_dict = compute_mchits_dict(mcevents)
 
     return mchits_dict
@@ -32,7 +33,7 @@ def load_mcparticles(file_name: str, max_events:int =1e+9) -> Mapping[int, MCPar
         return read_mctracks (mctable, max_events)
 
 
-def load_mcparticles_nexus(file_name: str, max_events:int =1e+9) -> Mapping[int, MCParticle]:
+def load_mcparticles_nexus(file_name: str, event_range=(0,1e9)) -> Mapping[int, MCParticle]:
 
     h5f = h5py.File(file_name, 'r')
     return read_mctracks_nexus(h5f, max_events)
@@ -80,7 +81,7 @@ def read_mctracks (mc_table: tables.table.Table,
     return all_events
 
 
-def read_mctracks_nexus (h5f, max_events:int =1e+9) ->Mapping[int, Mapping[int, MCParticle]]:
+def read_mctracks_nexus (h5f, event_range=(0,1e9)) ->Mapping[int, Mapping[int, MCParticle]]:
 
     h5extents = h5f.get('Run/extents')
     h5hits = h5f.get('Run/hits')
@@ -93,8 +94,8 @@ def read_mctracks_nexus (h5f, max_events:int =1e+9) ->Mapping[int, Mapping[int, 
     ihit = 0
     ipart = 0
 
-    for iext in range(h5extents):
-        if(iext >= max_events):
+    for iext in range(*event_range):
+        if(iext >= len(h5extents)):
             break
 
         current_event = {}
