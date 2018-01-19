@@ -8,9 +8,12 @@ file is produced.
 
 import numpy as np
 import tconfig as cfg
+import h5py
+
+from .. io.mchits_io         import load_mchits_nexus
 
 # read nexus information into a collection of MC hits
-mchits = read_nexus(cfg.nexus_file, cfg.Nevts, cfg.Nstart)
+mchits = load_mchits_nexus(cfg.nexus_file, cfg.Nevts, cfg.Nstart)
 
 # apply diffusion and smearing
 dhits = diffuse_and_smear_hits(mchits, cfg.diff_transv,
