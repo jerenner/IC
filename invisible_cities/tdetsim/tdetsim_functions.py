@@ -6,6 +6,7 @@ import numpy as np
 
 from .. evm.event_model        import MCHit
 from .. reco.paolina_functions import voxelize_hits
+from .. evm.nh5                import TrueVoxelsTable
 
 def diffuse_and_smear_hits(mchits_dict, zmin, zmax, diff_transv, diff_long,
                            resolution_FWHM, Qbb):
@@ -54,14 +55,25 @@ def create_voxels(mchits_dict, voxel_dimensions):
 
 # writers
 def true_voxels_writer(hdf5_file, *, compression='ZLIB4'):
-    hdf5_group = hdf5_file.create_group("Run")
+    # hdf5_group = hdf5_file.create_group("True")
+
+    voxels_table  = make_table(hdf5_file,
+                             group       = 'True',
+                             name        = 'Voxels',
+                             fformat     = TrueVoxelsTable,
+                             description = 'Voxels',
+                             compression = compression)
+    # Mark column to index after populating table
+    voxels_table.set_attr('columns_to_index', ['event'])
 
     def write_voxels(evt_number,voxels_event):
-        vx = [v.X for v in voxels_event]
-        vy = [v.Y for v in voxels_event]
-        vz = [v.Z for v in voxels_event]
-        ve = [v.E for v in voxels_event]
-        carr = np.array([vx, vy, vz, ve])
-        hdf5_group.create_dataset("truevox{0}".format(evt_number),data=carr)
+        row = voxels_table.row
+        for voxel in voxels_event:
+            row["event"] = evt_number
+            row["X"    ] = voxel.X
+            row["Y"    ] = voxel.Y
+            row["Z"    ] = voxel.Z
+            row["E"    ] = voxel.E
+            row.append()
 
     return write_voxels
