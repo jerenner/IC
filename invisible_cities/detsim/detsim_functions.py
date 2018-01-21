@@ -1,5 +1,6 @@
-"""tdetsim_functions
-Defines key functions used in TDetSim.
+"""
+detsim_functions.py
+Defines key functions used in Detsim.
 """
 
 import numpy as np

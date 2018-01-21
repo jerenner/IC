@@ -1,5 +1,5 @@
 """
-code: tdetsim.py
+code: detsim.py
 Simulation of sensor responses starting from Nexus output.
 
 An HDF5 file containing Nexus output is given as input, and the simulated
@@ -12,14 +12,14 @@ import h5py
 
 from argparse import Namespace
 
-from .  base_cities            import City
-from .. io.mchits_io           import load_mchits_nexus
+from .. cities.base_cities           import City
+from .. io.mchits_io                 import load_mchits_nexus
 
-from .. tdetsim.tdetsim_functions      import diffuse_and_smear_hits
-from .. tdetsim.tdetsim_functions      import create_voxels
-from .. tdetsim.tdetsim_functions      import true_voxels_writer
+from .. detsim.detsim_functions      import diffuse_and_smear_hits
+from .. detsim.detsim_functions      import create_voxels
+from .. detsim.detsim_functions      import true_voxels_writer
 
-class Tdetsim(City):
+class Detsim(City):
     """Simulates detector response for events produced by Nexus"""
 
     parameters = tuple("""zmin
@@ -65,16 +65,13 @@ class Tdetsim(City):
         voxels_dict = create_voxels(dmchits_dict,
                                         self.conf.true_voxel_dimensions)
 
-        
-
         if(self.conf.write_true_voxels):
             for evt_number,voxels in voxels_dict.items():
                 write.true_voxels(evt_number,voxels)
 
-        self.cnt.n_events_tot += len(mchits_dict)
+        #sipm_plane = simulate_sensors(voxels, light_func)
 
-        # cast light on SiPM plane
-        #sipm_plane = simulate_tracking_plane(voxels, light_func, cfg.zbins_voxels)
+        self.cnt.n_events_tot += len(mchits_dict)
 
         # save the SiPM waveforms
         #write_waveforms(sipm_plane)
