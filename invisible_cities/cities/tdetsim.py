@@ -10,10 +10,13 @@ file is produced.
 import numpy as np
 import h5py
 
+from argparse import Namespace
+
 from .  base_cities            import City
 from .. io.mchits_io           import load_mchits_nexus
 
 from .. tdetsim.tdetsim_functions      import diffuse_and_smear_hits
+from .. tdetsim.tdetsim_functions      import create_voxels
 from .. tdetsim.tdetsim_functions      import true_voxels_writer
 
 class Tdetsim(City):
@@ -29,6 +32,8 @@ class Tdetsim(City):
 
         """
         super().__init__(**kwds)
+
+        self.cnt.init(n_events_tot                 = 0)
 
     def file_loop(self):
         """
@@ -50,19 +55,23 @@ class Tdetsim(City):
         """
         write = self.writers
 
-        dmchits_dict= tdf.diffuse_and_smear_hits(mchits_dict, self.conf.zmin,
+        dmchits_dict= diffuse_and_smear_hits(mchits_dict, self.conf.zmin,
                                                  self.conf.zmax,
                                                  self.conf.diff_transv,
                                                  self.conf.diff_long,
                                                  self.conf.resolution_FWHM,
                                                  self.conf.Qbb)
 
-        voxels_dict = tdf.create_voxels(dmchits_dict,
+        voxels_dict = create_voxels(dmchits_dict,
                                         self.conf.true_voxel_dimensions)
+
+        
 
         if(self.conf.write_true_voxels):
             for evt_number,voxels in voxels_dict.items():
                 write.true_voxels(evt_number,voxels)
+
+        self.cnt.n_events_tot += len(mchits_dict)
 
         # cast light on SiPM plane
         #sipm_plane = simulate_tracking_plane(voxels, light_func, cfg.zbins_voxels)

@@ -4,6 +4,7 @@ Defines key functions used in TDetSim.
 
 import numpy as np
 
+from .. io.table_io            import make_table
 from .. evm.event_model        import MCHit
 from .. reco.paolina_functions import voxelize_hits
 from .. evm.nh5                import TrueVoxelsTable
@@ -19,8 +20,8 @@ def diffuse_and_smear_hits(mchits_dict, zmin, zmax, diff_transv, diff_long,
     for evt_number,mchits in mchits_dict.items():
 
         # calculate unscaled variance for energy smearing
-        E_evt = sum([hit.E for hh in mchits])
-        sigma0 = ((resolution_FWHM/100.) * sqrt(Qbb) * sqrt(E_evt)) / 2.355
+        E_evt = sum([hit.E for hit in mchits])
+        sigma0 = ((resolution_FWHM/100.) * np.sqrt(Qbb) * np.sqrt(E_evt)) / 2.355
         var0 = sigma0**2
 
         # calculate drift distance
@@ -30,10 +31,10 @@ def diffuse_and_smear_hits(mchits_dict, zmin, zmax, diff_transv, diff_long,
         dmchits = []
         for hit in mchits:
 
-            xh = np.random.normal(hit.X,np.sqrt(zdrift/10.)*transv_diff)
-            yh = np.random.normal(hit.Y,np.sqrt(zdrift/10.)*transv_diff)
-            zh = np.random.normal(hit.Z+zdrift,np.sqrt(zdrift/10.)*long_diff)
-            eh = np.random.normal(hit.E,np.sqrt(var0*ee/E_evt))
+            xh = np.random.normal(hit.X,np.sqrt(zdrift/10.)*diff_transv)
+            yh = np.random.normal(hit.Y,np.sqrt(zdrift/10.)*diff_transv)
+            zh = np.random.normal(hit.Z+zdrift,np.sqrt(zdrift/10.)*diff_long)
+            eh = np.random.normal(hit.E,np.sqrt(var0*hit.E/E_evt))
 
             dmchits.append(MCHit([xh,yh,zh], hit.T, eh))
 
@@ -58,7 +59,7 @@ def true_voxels_writer(hdf5_file, *, compression='ZLIB4'):
     # hdf5_group = hdf5_file.create_group("True")
 
     voxels_table  = make_table(hdf5_file,
-                             group       = 'True',
+                             group       = 'TrueVoxels',
                              name        = 'Voxels',
                              fformat     = TrueVoxelsTable,
                              description = 'Voxels',

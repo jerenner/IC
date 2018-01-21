@@ -1,5 +1,6 @@
 
 import tables
+import h5py
 from ..evm.event_model     import MCParticle
 from ..evm.event_model     import MCHit
 from typing import Mapping
@@ -16,11 +17,10 @@ def load_mchits(file_name: str, max_events:int =1e+9) -> Mapping[int, MCHit]:
 
 
 def load_mchits_nexus(file_name: str,
-                      event_range,
-                      max_events:int =1e+9) -> Mapping[int, MCHit]:
+                      event_range) -> Mapping[int, MCHit]:
 
     h5f = h5py.File(file_name, 'r')
-    mcevents = read_mctracks_nexus(h5f, event_range, max_events)
+    mcevents = read_mctracks_nexus(h5f, event_range)
     mchits_dict = compute_mchits_dict(mcevents)
 
     return mchits_dict
@@ -110,7 +110,7 @@ def read_mctracks_nexus (h5f, event_range=(0,1e9)) ->Mapping[int, Mapping[int, M
                                                h5particle['initial_vertex'],
                                                h5particle['final_vertex'],
                                                h5particle['momentum'],
-                                               h5particle['energy'])
+                                               h5particle['kin_energy'])
 
             ipart += 1
 
@@ -119,7 +119,10 @@ def read_mctracks_nexus (h5f, event_range=(0,1e9)) ->Mapping[int, Mapping[int, M
             h5hit = h5hits[ihit]
             itrack = h5hit['track_indx']
 
-            current_particle = current_event[itrack]
+            # in case the hit does not belong to a particle, create one
+            current_particle = current_event.setdefault(itrack,
+                                   MCParticle('unknown', 0, [0.,0.,0.],
+                                              [0.,0.,0.], [0.,0.,0.], 0.))
 
             hit = MCHit(h5hit['hit_position'],h5hit['hit_time'],
                           h5hit['hit_energy'])
