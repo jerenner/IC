@@ -79,3 +79,69 @@ def true_voxels_writer(hdf5_file, *, compression='ZLIB4'):
             row.append()
 
     return write_voxels
+
+ulight_frac = 8.0e-7     # scale factor for uniform reflected light: energy E emitted from a single point
+                         #   will give rise to a uniform illumination of the SiPM plane  in addition to
+                         #   its usual light cone.  The amount of illumination will be a uniform value with
+                         #   with min 0 and max E*sipm_par(0,0)*ulight_frac.
+
+E_to_Q = 7.5e3             # energy to Q (pes) conversion factor
+
+def simulate_sensors(voxels_dict, slice_width_sipm, slice_width_pmt,
+                     sipm_light_function, data_sipm):
+    """
+    Simulate sensor responses (SiPMs and PMTs)
+
+    """
+    nsipm = len(data_sipm.X)
+
+    for evt_number, voxels in voxels_dict.items():
+
+        zmin = np.min([voxel.Z for voxel in voxels])
+        zmax = np.max([voxel.Z for voxel in voxels])
+        nslices = int(np.ceil((zmax - zmin)/slice_width_sipm))
+
+        sipm_map      = np.zeros([nslices,nsipm])
+        sipm_energies = np.zeros(nslices)
+
+        pmt_energies  = np.zeros(nslices)
+
+        umean = en[ss]*E_to_Q*ulight_frac
+        sipm_map = np.maximum(np.random.normal(umean,umean,size=nsipm),np.zeros(nsipm))
+
+        # cast light on sensor planes for each voxel
+        for voxel in voxels:
+
+            # sipm plane
+            islice_sipm = int((voxel.Z - zmin)/slice_width_sipm)
+            rr = np.array([np.sqrt((xi - voxel.X)**2 + (yi - voxel.Y)**2) for xi,yi in zip(data_sipm.X,data_sipm.Y)])
+            probs = sipm_light_function(rr)
+            sipm_map[islice_sipm,:] += probs*voxel.E*E_to_Q
+            sipm_energies[islice_sipm] += voxel.E
+
+            # pmt plane
+            islice_pmt = int((voxel.Z - zmin)/slice_width_pmt)
+            pmt_energies[islice_pmt] += voxel.E
+
+        # uniform light (based on energy only)
+
+        # Apply the 1-pe threshold.
+        sipm_map[sipm_map < 1] = 0.
+
+        # At this point we may want to multiply the SiPM map by a
+        #  factor proportional to the slice energy.
+
+def sipm_lcone(A, d, ze):
+    """
+    Approximate SiPM light cone function.
+
+    A:  the area of a single SiPM
+    d:  the length of the EL gap
+    ze: the distance from the EL region to the SiPM sipm_plane
+    """
+
+    def sipm_lcone_r(r):
+        v = (A/(4*np.pi*d*np.sqrt(r**2 + ze**2)))*(1 - np.sqrt((r**2 + ze**2)/(r**2 + (ze+d)**2)))
+        return v
+
+    return sipm_lcone_r

@@ -18,6 +18,7 @@ from .. io.mchits_io                 import load_mchits_nexus
 from .. detsim.detsim_functions      import diffuse_and_smear_hits
 from .. detsim.detsim_functions      import create_voxels
 from .. detsim.detsim_functions      import true_voxels_writer
+from .. detsim.detsim_functions      import simulate_sensors
 
 class Detsim(City):
     """Simulates detector response for events produced by Nexus"""
@@ -69,11 +70,11 @@ class Detsim(City):
             for evt_number,voxels in voxels_dict.items():
                 write.true_voxels(evt_number,voxels)
 
-        #sipm_plane = simulate_sensors(voxels, light_func)
+        #sipm_plane = simulate_sensors(voxels_dict, light_func)
 
         self.cnt.n_events_tot += len(mchits_dict)
 
-        # save the SiPM waveforms
+        # save the sensor information in the form of PMaps
         #write_waveforms(sipm_plane)
 
     def get_writers(self, h5out):
