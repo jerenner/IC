@@ -7,57 +7,41 @@ import numpy as np
 
 from .. io.table_io            import make_table
 from .. evm.event_model        import MCHit
-from .. reco.paolina_functions import voxelize_hits
 from .. evm.nh5                import TrueVoxelsTable
 
-def diffuse_and_smear_hits(mchits_dict, zmin, zmax, diff_transv, diff_long,
+from .. evm.pmaps import S1
+from .. evm.pmaps import S2
+from .. evm.pmaps import S2Si
+
+def diffuse_and_smear_hits(mchits, zmin, zmax, diff_transv, diff_long,
                            resolution_FWHM, Qbb):
     """
     Applies diffusion and energy smearing to all MC hits.
 
     """
+    # calculate unscaled variance for energy smearing
+    E_evt = sum([hit.E for hit in mchits])
+    sigma0 = ((resolution_FWHM/100.) * np.sqrt(Qbb) * np.sqrt(E_evt)) / 2.355
+    var0 = sigma0**2
 
-    dmchits_dict = {}
-    for evt_number,mchits in mchits_dict.items():
+    # calculate drift distance
+    zdrift = np.random.uniform(zmin,zmax)
 
-        # calculate unscaled variance for energy smearing
-        E_evt = sum([hit.E for hit in mchits])
-        sigma0 = ((resolution_FWHM/100.) * np.sqrt(Qbb) * np.sqrt(E_evt)) / 2.355
-        var0 = sigma0**2
+    # apply diffusion and energy smearing
+    dmchits = []
+    for hit in mchits:
 
-        # calculate drift distance
-        zdrift = np.random.uniform(zmin,zmax)
+        xh = np.random.normal(hit.X,np.sqrt(zdrift/10.)*diff_transv)
+        yh = np.random.normal(hit.Y,np.sqrt(zdrift/10.)*diff_transv)
+        zh = np.random.normal(hit.Z+zdrift,np.sqrt(zdrift/10.)*diff_long)
+        eh = np.random.normal(hit.E,np.sqrt(var0*hit.E/E_evt))
 
-        # apply diffusion and energy smearing
-        dmchits = []
-        for hit in mchits:
+        dmchits.append(MCHit([xh,yh,zh], hit.T, eh))
 
-            xh = np.random.normal(hit.X,np.sqrt(zdrift/10.)*diff_transv)
-            yh = np.random.normal(hit.Y,np.sqrt(zdrift/10.)*diff_transv)
-            zh = np.random.normal(hit.Z+zdrift,np.sqrt(zdrift/10.)*diff_long)
-            eh = np.random.normal(hit.E,np.sqrt(var0*hit.E/E_evt))
-
-            dmchits.append(MCHit([xh,yh,zh], hit.T, eh))
-
-        dmchits_dict[evt_number] = dmchits
-
-    return dmchits_dict
-
-
-def create_voxels(mchits_dict, voxel_dimensions):
-    """
-    Produce voxels for each list of hits given in the specified dictionary.
-
-    """
-    mcvoxels_dict = {}
-    for evt_number,mchits in mchits_dict.items():
-        voxels = voxelize_hits(mchits, voxel_dimensions)
-        mcvoxels_dict[evt_number] = voxels
-    return mcvoxels_dict
+    return dmchits
 
 # writers
 def true_voxels_writer(hdf5_file, *, compression='ZLIB4'):
-    # hdf5_group = hdf5_file.create_group("True")
 
     voxels_table  = make_table(hdf5_file,
                              group       = 'TrueVoxels',
@@ -80,56 +64,126 @@ def true_voxels_writer(hdf5_file, *, compression='ZLIB4'):
 
     return write_voxels
 
-ulight_frac = 8.0e-7     # scale factor for uniform reflected light: energy E emitted from a single point
-                         #   will give rise to a uniform illumination of the SiPM plane  in addition to
-                         #   its usual light cone.  The amount of illumination will be a uniform value with
-                         #   with min 0 and max E*sipm_par(0,0)*ulight_frac.
-
-E_to_Q = 7.5e3             # energy to Q (pes) conversion factor
-
-def simulate_sensors(voxels_dict, slice_width_sipm, slice_width_pmt,
-                     sipm_light_function, data_sipm):
+def simulate_sensors(voxels,
+                     data_sipm, slice_width_sipm, light_function_sipm,
+                     E_to_Q_sipm, uniformlight_frac_sipm, s2_threshold_sipm,
+                     data_pmt, slice_width_pmt, light_function_pmt,
+                     E_to_Q_pmt, uniformlight_frac_pmt,
+                     s2_threshold_pmt, peak_space):
     """
     Simulate sensor responses (SiPMs and PMTs)
 
     """
     nsipm = len(data_sipm.X)
+    npmt  = len(data_pmt.X)
 
-    for evt_number, voxels in voxels_dict.items():
+    zmin = np.min([voxel.Z for voxel in voxels])
+    zmax = np.max([voxel.Z for voxel in voxels])
+    nslices = int(np.ceil((zmax - zmin)/slice_width_sipm))
 
-        zmin = np.min([voxel.Z for voxel in voxels])
-        zmax = np.max([voxel.Z for voxel in voxels])
-        nslices = int(np.ceil((zmax - zmin)/slice_width_sipm))
+    sipm_map      = np.zeros([nslices,nsipm])
+    sipm_energies = np.zeros(nslices)
+    pmt_map       = np.zeros([nslices,npmt])
+    pmt_energies  = np.zeros(nslices)
 
-        sipm_map      = np.zeros([nslices,nsipm])
-        sipm_energies = np.zeros(nslices)
+    # cast light on sensor planes for each voxel
+    for voxel in voxels:
 
-        pmt_energies  = np.zeros(nslices)
+        # sipm plane
+        islice_sipm = int((voxel.Z - zmin)/slice_width_sipm)
+        r_sipm = np.array([np.sqrt((xi - voxel.X)**2 + (yi - voxel.Y)**2) for xi,yi in zip(data_sipm.X,data_sipm.Y)])
+        probs_sipm = light_function_sipm(r_sipm)
+        sipm_map[islice_sipm,:] += probs_sipm*voxel.E*E_to_Q_sipm
+        sipm_energies[islice_sipm] += voxel.E
 
-        umean = en[ss]*E_to_Q*ulight_frac
-        sipm_map = np.maximum(np.random.normal(umean,umean,size=nsipm),np.zeros(nsipm))
+        # pmt plane
+        islice_pmt = int((voxel.Z - zmin)/slice_width_pmt)
+        r_pmt = np.array([np.sqrt((xi - voxel.X)**2 + (yi - voxel.Y)**2) for xi,yi in zip(data_pmt.X,data_pmt.Y)])
+        probs_pmt = light_function_pmt(r_pmt)
+        pmt_map[islice_pmt,:] += probs_pmt*voxel.E*E_to_Q_pmt
+        pmt_energies[islice_pmt] += voxel.E
 
-        # cast light on sensor planes for each voxel
-        for voxel in voxels:
+    # uniform light (based on energy only)
+    for islice,en_slice in enumerate(sipm_energies):
+        umean = en_slice*E_to_Q_sipm*uniformlight_frac_sipm
+        sipm_map[islice,:] += np.maximum(np.random.normal(umean,umean,size=nsipm),np.zeros(nsipm))
+    for islice,en_slice in enumerate(pmt_energies):
+        umean = en_slice*E_to_Q_pmt*uniformlight_frac_pmt
+        pmt_map[islice,:] += np.maximum(np.random.normal(umean,umean,size=npmt),np.zeros(npmt))
 
-            # sipm plane
-            islice_sipm = int((voxel.Z - zmin)/slice_width_sipm)
-            rr = np.array([np.sqrt((xi - voxel.X)**2 + (yi - voxel.Y)**2) for xi,yi in zip(data_sipm.X,data_sipm.Y)])
-            probs = sipm_light_function(rr)
-            sipm_map[islice_sipm,:] += probs*voxel.E*E_to_Q
-            sipm_energies[islice_sipm] += voxel.E
+    # apply the SiPM 1-pe threshold
+    sipm_map[sipm_map < 1] = 0.
 
-            # pmt plane
-            islice_pmt = int((voxel.Z - zmin)/slice_width_pmt)
-            pmt_energies[islice_pmt] += voxel.E
+    s1,s2,s2si = get_detsim_pmaps(sipm_map, slice_width_sipm,
+                                  s2_threshold_sipm, pmt_map,
+                                  slice_width_pmt, s2_threshold_pmt,
+                                  peak_space)
 
-        # uniform light (based on energy only)
+    return s1,s2,s2si
 
-        # Apply the 1-pe threshold.
-        sipm_map[sipm_map < 1] = 0.
+def get_detsim_pmaps(sipm_map, slice_width_sipm, s2_threshold_sipm,
+                     pmt_map, slice_width_pmt, s2_threshold_pmt,
+                     peak_space):
 
-        # At this point we may want to multiply the SiPM map by a
-        #  factor proportional to the slice energy.
+    # S1: for now, just a single value equal to 0
+    s1d = {0: ([0],[0])}
+
+    # S2
+    s2d = {}
+    ipeak = 0; last_slice = 0
+    t_array = []; e_array = []
+    t_peaks = []
+    for islice, signals in enumerate(pmt_map):
+        signal_sum = np.sum(signals)
+        if(signal_sum > s2_threshold_pmt):
+            if((islice - last_slice)*slice_width_pmt < peak_space):
+                t_array.append(islice*slice_width_pmt)
+                e_array.append(signals_sum)
+            else:
+                s2d[ipeak] = (t_array, e_array)
+                t_peaks.append(t_array[0])
+                t_array = [islice*slice_width_pmt]
+                e_array = [signals_sum]
+                ipeak += 1
+            last_slice = islice
+
+    # S2Si
+    s2sid = {}
+    ipeak = 0; islice = 0; last_slice = 0
+    t_array = []: e_array = []
+    for ipeak, tpeak in enumerate(t_peaks):
+
+        sipmd = {}
+        while(islice*slice_width_sipm < tpeak):
+            for isipm,signal in enumerate(sipm_map[islice]):
+                e_array = sipmd.setdefault(isipm,[])
+                e_array.append(signal)
+            islice += 1
+
+        # remove all SiPMs containing no charge
+        for isipm,signal in sipmd.items():
+            if(np.sum(signal) < s2_threshold_sipm):
+                del sipmd[isipm]
+
+        s2sid[ipeak] = sipmd
+
+    s1 = S1(s1d)
+    s2 = S2(s2d)
+    s2si = S2Si(s2d,s2sid)
+
+    return (s1, s2, s2si)
+
+def pmt_lcone(ze):
+    """
+    Approximate PMT light cone function.
+
+    ze: the distance from the EL region to the SiPM sipm_plane
+    """
+
+    def pmt_lcone_r(r, ze):
+        return np.abs(ze) / (2 * np.pi) / (r**2 + ze**2)**1.5
+
+    return pmt_lcone_r
 
 def sipm_lcone(A, d, ze):
     """
@@ -141,7 +195,6 @@ def sipm_lcone(A, d, ze):
     """
 
     def sipm_lcone_r(r):
-        v = (A/(4*np.pi*d*np.sqrt(r**2 + ze**2)))*(1 - np.sqrt((r**2 + ze**2)/(r**2 + (ze+d)**2)))
-        return v
+        return (A/(4*np.pi*d*np.sqrt(r**2 + ze**2)))*(1 - np.sqrt((r**2 + ze**2)/(r**2 + (ze+d)**2)))
 
     return sipm_lcone_r
