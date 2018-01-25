@@ -29,7 +29,10 @@ class Detsim(City):
 
     parameters = tuple("""zmin
       zmax zmax diff_transv diff_long resolution_FWHM
-      Qbb write_true_voxels true_voxel_dimensions""".split())
+      Qbb write_true_voxels true_voxel_dimensions A_sipm d_sipm
+      ze_sipm ze_pmt slice_width_sipm E_to_Q_sipm uniformlight_frac_sipm
+      s2_threshold_sipm slice_width_pmt E_to_Q_pmt uniformlight_frac_pmt
+      s2_threshold_pmt peak_space""".split())
 
     def __init__(self, **kwds):
         """actions:
@@ -39,6 +42,11 @@ class Detsim(City):
         super().__init__(**kwds)
 
         self.cnt.init(n_events_tot                 = 0)
+
+        self.light_function_sipm = sipm_lcone(self.conf.A_sipm,
+                                              self.conf.d_sipm,
+                                              self.conf.ze_sipm)
+        self.light_function_pmt  = pmt_lcone (self.conf.ze_pmt)
 
     def file_loop(self):
         """
@@ -75,14 +83,15 @@ class Detsim(City):
                 write.true_voxels(evt_number,voxels)
 
             pmap = simulate_sensors(voxels,
-                            self.data_sipm, self.conf.slice_width_sipm,
-                            sipm_lcone, self.conf.E_to_Q_sipm,
-                            self.conf.uniformlight_frac_sipm, self.data_pmt,
-                            self.conf.slice_width_pmt, light_function_pmt,
+                            self.DataSiPM, self.conf.slice_width_sipm,
+                            self.light_function_sipm, self.conf.E_to_Q_sipm,
+                            self.conf.uniformlight_frac_sipm,
+                            self.conf.s2_threshold_sipm, self.DataPMT,
+                            self.conf.slice_width_pmt, self.light_function_pmt,
                             self.conf.E_to_Q_pmt, self.conf.uniformlight_frac_pmt,
-                            self.conf.s2_threshold, self.conf.peak_space)
+                            self.conf.s2_threshold_pmt, self.conf.peak_space)
 
-            write.pmap(event, *pmap)
+            write.pmap(evt_number, *pmap)
 
         self.cnt.n_events_tot += len(mchits_dict)
 

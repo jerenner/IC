@@ -91,8 +91,10 @@ def read_mctracks_nexus (h5f, event_range=(0,1e9)) ->Mapping[int, Mapping[int, M
     particles = {}
     current_event = {}
 
-    ihit = 0
-    ipart = 0
+    ihit = 0; ipart = 0
+    if(event_range[0] > 0):
+        ihit = h5extents[event_range[0]-1]['last_hit']+1
+        ipart = h5extents[event_range[0]-1]['last_particle']+1
 
     for iext in range(*event_range):
         if(iext >= len(h5extents)):
@@ -101,7 +103,7 @@ def read_mctracks_nexus (h5f, event_range=(0,1e9)) ->Mapping[int, Mapping[int, M
         current_event = {}
 
         ipart_end = h5extents[iext]['last_particle']
-        while(ipart < ipart_end):
+        while(ipart <= ipart_end):
             h5particle = h5particles[ipart]
             itrack = h5particle['track_indx']
 
@@ -115,7 +117,7 @@ def read_mctracks_nexus (h5f, event_range=(0,1e9)) ->Mapping[int, Mapping[int, M
             ipart += 1
 
         ihit_end = h5extents[iext]['last_hit']
-        while(ihit < ihit_end):
+        while(ihit <= ihit_end):
             h5hit = h5hits[ihit]
             itrack = h5hit['track_indx']
 

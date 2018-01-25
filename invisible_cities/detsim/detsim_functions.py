@@ -79,12 +79,16 @@ def simulate_sensors(voxels,
 
     zmin = np.min([voxel.Z for voxel in voxels])
     zmax = np.max([voxel.Z for voxel in voxels])
-    nslices = int(np.ceil((zmax - zmin)/slice_width_sipm))
 
-    sipm_map      = np.zeros([nslices,nsipm])
-    sipm_energies = np.zeros(nslices)
-    pmt_map       = np.zeros([nslices,npmt])
-    pmt_energies  = np.zeros(nslices)
+    #print("Energy is {}".format(np.sum([voxel.E for voxel in voxels])))
+
+    nslices_sipm = int(np.ceil((zmax - zmin)/slice_width_sipm))
+    nslices_pmt  = int(np.ceil((zmax - zmin)/slice_width_pmt))
+
+    sipm_map      = np.zeros([nslices_sipm,nsipm])
+    sipm_energies = np.zeros(nslices_sipm)
+    pmt_map       = np.zeros([nslices_pmt,npmt])
+    pmt_energies  = np.zeros(nslices_pmt)
 
     # cast light on sensor planes for each voxel
     for voxel in voxels:
@@ -114,56 +118,66 @@ def simulate_sensors(voxels,
     # apply the SiPM 1-pe threshold
     sipm_map[sipm_map < 1] = 0.
 
-    s1,s2,s2si = get_detsim_pmaps(sipm_map, slice_width_sipm,
+    pmap = get_detsim_pmaps(sipm_map, slice_width_sipm,
                                   s2_threshold_sipm, pmt_map,
                                   slice_width_pmt, s2_threshold_pmt,
                                   peak_space)
 
-    return s1,s2,s2si
+    return pmap
 
 def get_detsim_pmaps(sipm_map, slice_width_sipm, s2_threshold_sipm,
                      pmt_map, slice_width_pmt, s2_threshold_pmt,
                      peak_space):
 
     # S1: for now, just a single value equal to 0
-    s1d = {0: ([0],[0])}
+    s1d = {0: (np.array([0.]),np.array([0.]))}
 
     # S2
     s2d = {}
     ipeak = 0; last_slice = 0
     t_array = []; e_array = []
-    t_peaks = []
+    t_peaks = []  # end times of each peak
     for islice, signals in enumerate(pmt_map):
-        signal_sum = np.sum(signals)
-        if(signal_sum > s2_threshold_pmt):
+        signals_sum = np.sum(signals)
+        if(signals_sum > s2_threshold_pmt):
             if((islice - last_slice)*slice_width_pmt < peak_space):
                 t_array.append(islice*slice_width_pmt)
                 e_array.append(signals_sum)
             else:
-                s2d[ipeak] = (t_array, e_array)
-                t_peaks.append(t_array[0])
+                s2d[ipeak] = (np.array(t_array).astype('double'),
+                              np.array(e_array).astype('double'))
+                t_peaks.append(t_array[-1])
                 t_array = [islice*slice_width_pmt]
                 e_array = [signals_sum]
                 ipeak += 1
             last_slice = islice
 
+    t_peaks.append(t_array[-1])
+    s2d[ipeak] = (np.array(t_array).astype('double'),
+                  np.array(e_array).astype('double'))
+    #print("Peak times are {}".format(t_peaks))
+
     # S2Si
     s2sid = {}
     ipeak = 0; islice = 0; last_slice = 0
-    t_array = []: e_array = []
+    t_array = []; e_array = []
     for ipeak, tpeak in enumerate(t_peaks):
 
         sipmd = {}
-        while(islice*slice_width_sipm < tpeak):
+        while(islice*slice_width_sipm <= tpeak):
             for isipm,signal in enumerate(sipm_map[islice]):
                 e_array = sipmd.setdefault(isipm,[])
                 e_array.append(signal)
+                #if(signal > 0.): print("Adding signal {}".format(signal))
             islice += 1
 
         # remove all SiPMs containing no charge
+        remove_sipms = []
         for isipm,signal in sipmd.items():
             if(np.sum(signal) < s2_threshold_sipm):
-                del sipmd[isipm]
+                #print("Removing sipm {} with signal {}".format(isipm,np.sum(signal)))
+                remove_sipms.append(isipm)
+        for isipm in remove_sipms: del sipmd[isipm]
 
         s2sid[ipeak] = sipmd
 
@@ -180,7 +194,7 @@ def pmt_lcone(ze):
     ze: the distance from the EL region to the SiPM sipm_plane
     """
 
-    def pmt_lcone_r(r, ze):
+    def pmt_lcone_r(r):
         return np.abs(ze) / (2 * np.pi) / (r**2 + ze**2)**1.5
 
     return pmt_lcone_r
