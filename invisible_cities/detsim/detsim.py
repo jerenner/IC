@@ -91,7 +91,7 @@ class Detsim(City):
                             self.conf.E_to_Q_pmt, self.conf.uniformlight_frac_pmt,
                             self.conf.s2_threshold_pmt, self.conf.peak_space)
 
-            write.pmap(evt_number, *pmap)
+            write.pmap(pmap, evt_number)
 
         self.cnt.n_events_tot += len(mchits_dict)
 

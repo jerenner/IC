@@ -9,9 +9,12 @@ from .. io.table_io            import make_table
 from .. evm.event_model        import MCHit
 from .. evm.nh5                import TrueVoxelsTable
 
-from .. evm.pmaps import S1
-from .. evm.pmaps import S2
-from .. evm.pmaps import S2Si
+from .. evm.pmaps              import S1
+from .. evm.pmaps              import S2
+from .. evm.pmaps              import PMTResponses
+from .. evm.pmaps              import SiPMResponses
+
+from .. reco                   import peak_functions           as pkf
 
 def diffuse_and_smear_hits(mchits, zmin, zmax, diff_transv, diff_long,
                            resolution_FWHM, Qbb):
@@ -125,67 +128,52 @@ def simulate_sensors(voxels,
 
     return pmap
 
-def get_detsim_pmaps(sipm_map, slice_width_sipm, s2_threshold_sipm,
-                     pmt_map, slice_width_pmt, s2_threshold_pmt,
+def get_detsim_pmaps(data_sipm, sipm_map, slice_width_sipm, s2_threshold_sipm,
+                     data_pmt, pmt_map, slice_width_pmt, s2_threshold_pmt,
                      peak_space):
 
-    # S1: for now, just a single value equal to 0
-    s1d = {0: (np.array([0.]),np.array([0.]))}
+    ids_pmt = [ipmt for ipmt in range(0,12)]
+
+    # S1: for now, just a single value equal to 0 for each PMT
+    s1s = [ S1([0.],
+            PMTResponses(ids_pmt, np.zeros([12,1])),
+            SiPMResponses.build_empty_instance())]
 
     # S2
-    s2d = {}
-    ipeak = 0; last_slice = 0
-    t_array = []; e_array = []
-    t_peaks = []  # end times of each peak
-    for islice, signals in enumerate(pmt_map):
+    s2s = []
+    t_peak = []
+    islice_lastpk_pmt = 0
+    islice_lastpk_sipm = 0
+    for islice_pmt in range(len(pmt_map)):
         signals_sum = np.sum(signals)
         if(signals_sum > s2_threshold_pmt):
-            if((islice - last_slice)*slice_width_pmt < peak_space):
-                t_array.append(islice*slice_width_pmt)
-                e_array.append(signals_sum)
+            end_of_pk = ((islice_pmt - islice_lastpk_pmt)*slice_width_pmt >= peak_space)
+            end_of_map = (islice_pmt == len(pmt_map)-1)
+
+            # advance to the end of the pmt map if we're still in the same peak
+            if(end_of_map and not end_of_pk):
+                islice_pmt += 1
+
+            # make a new S2 peak (the final one if we're at the end of the map)
+            if(end_of_map or end_of_pk):
+
+                # create a new S2 peak beginning where the last one left off
+                pk_wf_pmt = pmt_map[islice_lastpk_pmt:islice_pmt,:]
+                islice_sipm = islice_lastpk_sipm
+                while(islice_sipm*slice_width_sipm < islice_pmt*slice_width_pmt):
+                    islice_sipm += 1
+                ids_sipm, pk_wf_sipm = pkf.select_wfs_above_time_integrated_thr(sipm_map[islice_lastpk_sipm:islice_sipm,:],s2s2_threshold_sipm)
+                s2_peaks.append(S2(t_peak,PMTResponses(ids_pmt,pk_wf_pmt),
+                                          SiPMResponses(ids_sipm,pk_wf_sipm)))
+
+                islice_lastpk_pmt  = islice_pmt
+                islice_lastpk_sipm = islice_sipm
+                t_peak = [islice_pmt*slice_width_pmt]
+
             else:
-                s2d[ipeak] = (np.array(t_array).astype('double'),
-                              np.array(e_array).astype('double'))
-                t_peaks.append(t_array[-1])
-                t_array = [islice*slice_width_pmt]
-                e_array = [signals_sum]
-                ipeak += 1
-            last_slice = islice
+                t_peak.append(islice_pmt*slice_width_pmt)
 
-    t_peaks.append(t_array[-1])
-    s2d[ipeak] = (np.array(t_array).astype('double'),
-                  np.array(e_array).astype('double'))
-    #print("Peak times are {}".format(t_peaks))
-
-    # S2Si
-    s2sid = {}
-    ipeak = 0; islice = 0; last_slice = 0
-    t_array = []; e_array = []
-    for ipeak, tpeak in enumerate(t_peaks):
-
-        sipmd = {}
-        while(islice*slice_width_sipm <= tpeak):
-            for isipm,signal in enumerate(sipm_map[islice]):
-                e_array = sipmd.setdefault(isipm,[])
-                e_array.append(signal)
-                #if(signal > 0.): print("Adding signal {}".format(signal))
-            islice += 1
-
-        # remove all SiPMs containing no charge
-        remove_sipms = []
-        for isipm,signal in sipmd.items():
-            if(np.sum(signal) < s2_threshold_sipm):
-                #print("Removing sipm {} with signal {}".format(isipm,np.sum(signal)))
-                remove_sipms.append(isipm)
-        for isipm in remove_sipms: del sipmd[isipm]
-
-        s2sid[ipeak] = sipmd
-
-    s1 = S1(s1d)
-    s2 = S2(s2d)
-    s2si = S2Si(s2d,s2sid)
-
-    return (s1, s2, s2si)
+    return PMap(s1s,s2s)
 
 def pmt_lcone(ze):
     """
