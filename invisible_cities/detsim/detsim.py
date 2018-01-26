@@ -15,7 +15,7 @@ from argparse import Namespace
 from .. cities.base_cities           import City
 from .. io.mchits_io                 import load_mchits_nexus
 
-from .. io.pmap_io                   import pmap_writer
+from .. io.pmaps_io                  import pmap_writer
 
 from .. reco.paolina_functions       import voxelize_hits
 from .. detsim.detsim_functions      import diffuse_and_smear_hits

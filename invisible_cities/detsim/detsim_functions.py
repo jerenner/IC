@@ -13,6 +13,7 @@ from .. evm.pmaps              import S1
 from .. evm.pmaps              import S2
 from .. evm.pmaps              import PMTResponses
 from .. evm.pmaps              import SiPMResponses
+from .. evm.pmaps              import PMap
 
 from .. reco                   import peak_functions           as pkf
 
@@ -121,15 +122,14 @@ def simulate_sensors(voxels,
     # apply the SiPM 1-pe threshold
     sipm_map[sipm_map < 1] = 0.
 
-    pmap = get_detsim_pmaps(sipm_map, slice_width_sipm,
-                                  s2_threshold_sipm, pmt_map,
-                                  slice_width_pmt, s2_threshold_pmt,
+    pmap = get_detsim_pmaps(sipm_map, s2_threshold_sipm, pmt_map,
+                                  s2_threshold_pmt, slice_width_pmt,
                                   peak_space)
 
     return pmap
 
-def get_detsim_pmaps(data_sipm, sipm_map, slice_width_sipm, s2_threshold_sipm,
-                     data_pmt, pmt_map, slice_width_pmt, s2_threshold_pmt,
+def get_detsim_pmaps(sipm_map, s2_threshold_sipm,
+                     pmt_map, s2_threshold_pmt, slice_width,
                      peak_space):
 
     ids_pmt = [ipmt for ipmt in range(0,12)]
@@ -141,39 +141,35 @@ def get_detsim_pmaps(data_sipm, sipm_map, slice_width_sipm, s2_threshold_sipm,
 
     # S2
     s2s = []
-    t_peak = []
-    islice_lastpk_pmt = 0
-    islice_lastpk_sipm = 0
-    for islice_pmt in range(len(pmt_map)):
-        signals_sum = np.sum(signals)
+    islice_lastpk = 0
+    for islice in range(len(pmt_map)):
+
+        signals_sum = np.sum(pmt_map[islice,:])
         if(signals_sum > s2_threshold_pmt):
-            end_of_pk = ((islice_pmt - islice_lastpk_pmt)*slice_width_pmt >= peak_space)
-            end_of_map = (islice_pmt == len(pmt_map)-1)
 
-            # advance to the end of the pmt map if we're still in the same peak
-            if(end_of_map and not end_of_pk):
-                islice_pmt += 1
-
-            # make a new S2 peak (the final one if we're at the end of the map)
-            if(end_of_map or end_of_pk):
+            if((islice - islice_lastpk)*slice_width >= peak_space):
 
                 # create a new S2 peak beginning where the last one left off
-                pk_wf_pmt = pmt_map[islice_lastpk_pmt:islice_pmt,:]
-                islice_sipm = islice_lastpk_sipm
-                while(islice_sipm*slice_width_sipm < islice_pmt*slice_width_pmt):
-                    islice_sipm += 1
-                ids_sipm, pk_wf_sipm = pkf.select_wfs_above_time_integrated_thr(sipm_map[islice_lastpk_sipm:islice_sipm,:],s2s2_threshold_sipm)
-                s2_peaks.append(S2(t_peak,PMTResponses(ids_pmt,pk_wf_pmt),
-                                          SiPMResponses(ids_sipm,pk_wf_sipm)))
+                s2s.append(make_s2(pmt_map, sipm_map, s2_threshold_sipm, slice_width,
+                                   ids_pmt, islice_lastpk, islice))
 
-                islice_lastpk_pmt  = islice_pmt
-                islice_lastpk_sipm = islice_sipm
-                t_peak = [islice_pmt*slice_width_pmt]
+                islice_lastpk  = islice
 
-            else:
-                t_peak.append(islice_pmt*slice_width_pmt)
+    # create the final S2 peak
+    s2s.append(make_s2(pmt_map, sipm_map, s2_threshold_sipm, slice_width,
+                       ids_pmt, islice_lastpk, len(pmt_map)))
 
     return PMap(s1s,s2s)
+
+def make_s2(pmt_map, sipm_map, s2_threshold_sipm, slice_width,
+            ids_pmt, islice_lastpk, islice):
+    pk_wf_pmt = pmt_map[islice_lastpk:islice,:].transpose()
+    ids_sipm, pk_wf_sipm = pkf.select_wfs_above_time_integrated_thr(
+            sipm_map[islice_lastpk:islice,:].transpose(),
+            s2_threshold_sipm)
+    return S2([t*slice_width for t in range(islice_lastpk,islice)],
+                  PMTResponses(ids_pmt,pk_wf_pmt),
+                  SiPMResponses(ids_sipm,pk_wf_sipm))
 
 def pmt_lcone(ze):
     """
