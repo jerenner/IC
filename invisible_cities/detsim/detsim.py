@@ -16,6 +16,7 @@ from .. cities.base_cities           import City
 from .. io.mchits_io                 import load_mchits_nexus
 
 from .. io.pmaps_io                  import pmap_writer
+from .. io.run_and_event_io          import run_and_event_writer
 
 from .. reco.paolina_functions       import voxelize_hits
 from .. detsim.detsim_functions      import diffuse_and_smear_hits
@@ -92,12 +93,14 @@ class Detsim(City):
                             self.conf.s2_threshold_pmt, self.conf.peak_space)
 
             write.pmap(pmap, evt_number)
+            write.run_and_event(self.run_number, evt_number, 0)
 
         self.cnt.n_events_tot += len(mchits_dict)
 
 
     def get_writers(self, h5out):
         writers = Namespace(
+        run_and_event = run_and_event_writer(h5out),
         true_voxels = true_voxels_writer(h5out),
         pmap        =        pmap_writer(h5out)
         )
