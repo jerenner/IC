@@ -14,7 +14,6 @@ from .. evm.pmaps              import S2
 from .. evm.pmaps              import PMTResponses
 from .. evm.pmaps              import SiPMResponses
 from .. evm.pmaps              import PMap
-from .. core.system_of_units_c import units
 
 from .. reco                   import peak_functions           as pkf
 
@@ -115,10 +114,14 @@ def simulate_sensors(voxels,
     # uniform light (based on energy only)
     for islice,en_slice in enumerate(sipm_energies):
         umean = en_slice*E_to_Q_sipm*uniformlight_frac_sipm
-        sipm_map[islice,:] += np.maximum(np.random.normal(umean,umean,size=nsipm),np.zeros(nsipm))
+        if(umean >= 0):
+            sipm_map[islice,:] += np.maximum(np.random.normal(umean,
+                                             umean,size=nsipm),np.zeros(nsipm))
     for islice,en_slice in enumerate(pmt_energies):
         umean = en_slice*E_to_Q_pmt*uniformlight_frac_pmt
-        pmt_map[islice,:] += np.maximum(np.random.normal(umean,umean,size=npmt),np.zeros(npmt))
+        if(umean >= 0):
+            pmt_map[islice,:] += np.maximum(np.random.normal(umean,
+                                            umean,size=npmt),np.zeros(npmt))
 
     # apply the SiPM 1-pe threshold
     sipm_map[sipm_map < 1] = 0.
@@ -168,7 +171,7 @@ def make_s2(pmt_map, sipm_map, s2_threshold_sipm, slice_width,
     ids_sipm, pk_wf_sipm = pkf.select_wfs_above_time_integrated_thr(
             sipm_map[islice_lastpk:islice,:].transpose(),
             s2_threshold_sipm)
-    return S2([t*slice_width*units.mus for t in range(islice_lastpk,islice)],
+    return S2([t*slice_width for t in range(islice_lastpk,islice)],
                   PMTResponses(ids_pmt,pk_wf_pmt),
                   SiPMResponses(ids_sipm,pk_wf_sipm))
 
