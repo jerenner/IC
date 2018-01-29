@@ -5,10 +5,11 @@ Defines key functions used in Detsim.
 
 import numpy as np
 
+from .. core.system_of_units_c import units
 from .. io.table_io            import make_table
+
 from .. evm.event_model        import MCHit
 from .. evm.nh5                import TrueVoxelsTable
-
 from .. evm.pmaps              import S1
 from .. evm.pmaps              import S2
 from .. evm.pmaps              import PMTResponses
@@ -139,7 +140,7 @@ def get_detsim_pmaps(sipm_map, s2_threshold_sipm,
     ids_pmt = [ipmt for ipmt in range(0,12)]
 
     # S1: for now, a default S1
-    s1s = [ S1(np.arange(0,5)*slice_width,
+    s1s = [ S1(np.arange(0,5)*slice_width*units.mus,
             PMTResponses(ids_pmt, 10*np.ones([12,5])),
             SiPMResponses.build_empty_instance())]
 
@@ -171,7 +172,7 @@ def make_s2(pmt_map, sipm_map, s2_threshold_sipm, slice_width,
     ids_sipm, pk_wf_sipm = pkf.select_wfs_above_time_integrated_thr(
             sipm_map[islice_lastpk:islice,:].transpose(),
             s2_threshold_sipm)
-    return S2([(t+int(zdrift))*slice_width for t in range(islice_lastpk,islice)],
+    return S2([(t+int(zdrift))*slice_width*units.mus for t in range(islice_lastpk,islice)],
                   PMTResponses(ids_pmt,pk_wf_pmt),
                   SiPMResponses(ids_sipm,pk_wf_sipm))
 
