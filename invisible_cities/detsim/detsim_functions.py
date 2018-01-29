@@ -140,8 +140,8 @@ def get_detsim_pmaps(sipm_map, s2_threshold_sipm,
     ids_pmt = [ipmt for ipmt in range(0,12)]
 
     # S1: for now, a default S1
-    s1s = [ S1(np.arange(0,5)*slice_width*units.mus,
-            PMTResponses(ids_pmt, 10*np.ones([12,5])),
+    s1s = [ S1([slice_width*units.mus],
+            PMTResponses(ids_pmt, 10*np.ones([12,1])),
             SiPMResponses.build_empty_instance())]
 
     # S2
