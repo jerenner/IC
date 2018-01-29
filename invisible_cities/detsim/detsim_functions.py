@@ -42,7 +42,7 @@ def diffuse_and_smear_hits(mchits, zmin, zmax, diff_transv, diff_long,
 
         dmchits.append(MCHit([xh,yh,zh], hit.T, eh))
 
-    return dmchits
+    return dmchits,zdrift
 
 # writers
 def true_voxels_writer(hdf5_file, *, compression='ZLIB4'):
@@ -68,7 +68,7 @@ def true_voxels_writer(hdf5_file, *, compression='ZLIB4'):
 
     return write_voxels
 
-def simulate_sensors(voxels,
+def simulate_sensors(voxels, zdrift,
                      data_sipm, slice_width_sipm, light_function_sipm,
                      E_to_Q_sipm, uniformlight_frac_sipm, s2_threshold_sipm,
                      data_pmt, slice_width_pmt, light_function_pmt,
@@ -128,19 +128,19 @@ def simulate_sensors(voxels,
 
     pmap = get_detsim_pmaps(sipm_map, s2_threshold_sipm, pmt_map,
                                   s2_threshold_pmt, slice_width_pmt,
-                                  peak_space)
+                                  peak_space, zdrift)
 
     return pmap
 
 def get_detsim_pmaps(sipm_map, s2_threshold_sipm,
                      pmt_map, s2_threshold_pmt, slice_width,
-                     peak_space):
+                     peak_space, zdrift):
 
     ids_pmt = [ipmt for ipmt in range(0,12)]
 
-    # S1: for now, just a single value equal to 0 for each PMT
-    s1s = [ S1([0.],
-            PMTResponses(ids_pmt, np.zeros([12,1])),
+    # S1: for now, a default S1
+    s1s = [ S1(np.arange(0,5)*slice_width,
+            PMTResponses(ids_pmt, 10*np.ones([12,5])),
             SiPMResponses.build_empty_instance())]
 
     # S2
@@ -155,23 +155,23 @@ def get_detsim_pmaps(sipm_map, s2_threshold_sipm,
 
                 # create a new S2 peak beginning where the last one left off
                 s2s.append(make_s2(pmt_map, sipm_map, s2_threshold_sipm, slice_width,
-                                   ids_pmt, islice_lastpk, islice))
+                                   ids_pmt, islice_lastpk, islice, zdrift))
 
                 islice_lastpk  = islice
 
     # create the final S2 peak
     s2s.append(make_s2(pmt_map, sipm_map, s2_threshold_sipm, slice_width,
-                       ids_pmt, islice_lastpk, len(pmt_map)))
+                       ids_pmt, islice_lastpk, len(pmt_map), zdrift))
 
     return PMap(s1s,s2s)
 
 def make_s2(pmt_map, sipm_map, s2_threshold_sipm, slice_width,
-            ids_pmt, islice_lastpk, islice):
+            ids_pmt, islice_lastpk, islice, zdrift):
     pk_wf_pmt = pmt_map[islice_lastpk:islice,:].transpose()
     ids_sipm, pk_wf_sipm = pkf.select_wfs_above_time_integrated_thr(
             sipm_map[islice_lastpk:islice,:].transpose(),
             s2_threshold_sipm)
-    return S2([t*slice_width for t in range(islice_lastpk,islice)],
+    return S2([(t+int(zdrift))*slice_width for t in range(islice_lastpk,islice)],
                   PMTResponses(ids_pmt,pk_wf_pmt),
                   SiPMResponses(ids_sipm,pk_wf_sipm))
 

@@ -71,19 +71,19 @@ class Detsim(City):
 
         for evt_number, mchits in mchits_dict.items():
 
-            dmchits = diffuse_and_smear_hits(mchits, self.conf.zmin,
-                                                 self.conf.zmax,
-                                                 self.conf.diff_transv,
-                                                 self.conf.diff_long,
-                                                 self.conf.resolution_FWHM,
-                                                 self.conf.Qbb)
+            dmchits,zdrift = diffuse_and_smear_hits(mchits, self.conf.zmin,
+                                                    self.conf.zmax,
+                                                    self.conf.diff_transv,
+                                                    self.conf.diff_long,
+                                                    self.conf.resolution_FWHM,
+                                                    self.conf.Qbb)
 
             voxels = voxelize_hits(dmchits, self.conf.true_voxel_dimensions)
 
             if(self.conf.write_true_voxels):
                 write.true_voxels(evt_number,voxels)
 
-            pmap = simulate_sensors(voxels,
+            pmap = simulate_sensors(voxels, zdrift,
                             self.DataSiPM, self.conf.slice_width_sipm,
                             self.light_function_sipm, self.conf.E_to_Q_sipm,
                             self.conf.uniformlight_frac_sipm,
