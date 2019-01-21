@@ -48,14 +48,18 @@ def correct_hits(hitc : evm.HitCollection, **kargs) -> evm.HitCollection:
     """ This function redestribude the energy of NN hits to the surrpouding ones and applies energy correction."""
     raise NotImplementedError
 
-class class_to_store_info:
+class class_to_store_info_per_track:
     pass
 
-def extract_track_blob_info(hitc : evm.HitCollection, **kargs)-> Tuple(evm.HitCollection, class_to_store_info):
+class class_to_store_event_summary:
+    pass
+
+
+def extract_track_info(hitc : evm.HitCollection, **kargs)-> Tuple(evm.HitCollection, class_to_store_info_per_track):
     """This function extract relevant info about the tracks and blobs, as well as assigning new field of energy, track_id etc to the HitCollection object (NOTE: we don't want to erase any hits, just redifine some attributes. If we need to cut away some hits to apply paolina functions, it has to be on the copy of the original hits)"""
     raise NotImplementedError
 
-def make_final_summary(class_to_store_info, kdst_info_table,**kargs)-> class_to_store_info:
+def make_final_summary(class_to_store_info, kdst_info_table,**kargs)-> class_to_store_event_summary:
     """I am not sure this is a new function or goes under extract_track_blob_info. To be discussed"""
     raise NotImplementedError
 
