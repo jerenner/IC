@@ -20,16 +20,13 @@ from .. dataflow.dataflow   import pipe
 
 from .  components import city
 from .  components import print_every
+from .  components import hits_and_kdst_from_files
 from .. evm  import event_model as evm
 
 from .. io.         hits_io import          hits_writer
 from .. io.       mcinfo_io import       mc_info_writer
 from .. io.run_and_event_io import run_and_event_writer
 
-
-def hits_and_kdst_from_files(paths) -> dict:
-    """Reader of the files, returns dictionary with relevant info"""
-    raise NotImplementedError
 
 def hits_corrector(map_fname: str, **kargs) -> Callable:
     """Wrapper of correct_hits"""
