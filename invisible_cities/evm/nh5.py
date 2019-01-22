@@ -230,13 +230,13 @@ class HitsTable(tb.IsDescription):
     Z        = tb.Float64Col(pos=10)
     Q        = tb.Float64Col(pos=11)
     E        = tb.Float64Col(pos=12)
-    Ql       = tb.Float64Col(pos=13)
-    El       = tb.Float64Col(pos=14)
-    Qc       = tb.Float64Col(pos=15)
-    Ec       = tb.Float64Col(pos=16)
-    Zc       = tb.Float64Col(pos=17)
-
-
+    #Ql       = tb.Float64Col(pos=13)
+    #El       = tb.Float64Col(pos=14)
+    Qc       = tb.Float64Col(pos=13)
+    Ec       = tb.Float64Col(pos=14)
+    #Zc       = tb.Float64Col(pos=17)
+    Ep       = tb.Float64Col(pos=15)
+    tr_id    = tb.  Int32Col(pos=16)
 class VoxelsTable(tb.IsDescription):
     event    = tb.  Int32Col(pos=0)
     X        = tb.Float64Col(pos=1)
