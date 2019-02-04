@@ -2,7 +2,7 @@
 -----------------------------------------------------------------------
                               Esmeralda
 -----------------------------------------------------------------------
-This city is correcting hits and vixelizing them. The input is penthesilea output containing hits, kdst global information and mc info. The output contains tables:
+This city is correcting hits and voxelizing them. The input is penthesilea output containing hits, kdst global information and mc info. The output contains tables:
 - corrected hits
 - summary of topology analysis
 - mc info
@@ -33,13 +33,31 @@ def hits_threshold_and_corrector(map_fname: str, **kargs) -> Callable:
     """Wrapper of correct_hits"""
     return partial(threshold_and_correct_hits(**locals()))
 
-def track_blob_info_extractor(vox_size, energy_threshold, min_voxels) -> Callable:
+def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radius) -> Callable:
     """ Wrapper of extract_track_blob_info"""
     def extract_track_blob_info(hitc):
         """This function extract relevant info about the tracks and blobs, as well as assigning new field of energy, track_id etc to the HitCollection object (NOTE: we don't want to erase any hits, just redifine some attributes. If we need to cut away some hits to apply paolina functions, it has to be on the copy of the original hits)"""
         voxels     = plf.voxelize_hits(hitc, vox_size)
         mod_voxels = plf.drop_end_point_voxels(voxels, energy_threshold, min_voxels)
         tracks     = plf.make_track_graphs(mod_voxels)
+
+        for t in tracks:
+            min_z = min([h.Z for v in t.nodes() for h in v.hits])
+            max_z = max([h.Z for v in t.nodes() for h in v.hits])
+
+            for v in t.nodes():
+                for h in v.hits:
+                    h.energy = h.energy/(1 - z_factor * (max_z - min_z))
+                v.energy = v.energy/(1 - z_factor * (max_z - min_z))
+
+        c_trks = plf.make_track_graphs(mod_voxels)
+        for t in c_tracks:
+            e_blob2, e_blob1, hits_blob2, hits_blob1 = plf.blob_energies_and_hits(t, blob_radius)
+            pos2, pos1 = plf.blob_centres(t, blob_radius)
+
+            overlap = False
+            if len(set(hits_blob1).intersection(hits_blob2)) > 0:
+                overlap = True
 
     return extract_track_blob_info
 
@@ -86,7 +104,7 @@ def esmeralda(files_in, file_out, compression, event_range, print_mod, run_numbe
                                                 args = 'hits',
                                                 out  = 'corrected_hits')
 
-    extract_track_blob_info = fl.map(track_blob_info_extractor(vox_size, energy_threshold, min_voxels),
+    extract_track_blob_info = fl.map(track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radius),
                                      args = 'corrected_hits',
                                      out  = ('paolina_hits', 'topology_info'))
 
