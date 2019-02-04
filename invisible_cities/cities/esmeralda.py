@@ -50,11 +50,30 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
                     h.energy = h.energy/(1 - z_factor * (max_z - min_z))
                 v.energy = v.energy/(1 - z_factor * (max_z - min_z))
 
-        c_trks = plf.make_track_graphs(mod_voxels)
-        for t in c_tracks:
-            e_blob2, e_blob1, hits_blob2, hits_blob1 = plf.blob_energies_and_hits(t, blob_radius)
-            pos2, pos1 = plf.blob_centres(t, blob_radius)
+        c_tracks = plf.make_track_graphs(mod_voxels)
+        for c, t in enumerate(c_tracks, 0):
+            ID = c
+            length = plf.length(t)
+            energy = sum([vox.E for vox in t.nodes()])
+            numb_of_hits = len([h for vox in t.nodes() for h in vox.hits])
+            numb_of_voxels = len(t.nodes())
+            numb_of_tracks = len(c_tracks)
 
+            min_x = min([h.X for v in t.nodes() for h in v.hits])
+            max_x = max([h.X for v in t.nodes() for h in v.hits])
+            min_y = min([h.Y for v in t.nodes() for h in v.hits])
+            max_y = max([h.Y for v in t.nodes() for h in v.hits])
+            min_z = min([h.Z for v in t.nodes() for h in v.hits])
+            max_z = max([h.Z for v in t.nodes() for h in v.hits])
+            max_r = max([np.sqrt(h.X*h.X + h.Y*h.Y) for v in t.nodes() for h in v.hits])
+
+            extr1, extr2 = plf.find_extrema(t)
+            extr1_pos = extr1.XYZ
+            extr2_pos = extr2.XYZ
+
+            blob_pos2, blob_pos1 = plf.blob_centres(t, blob_radius)
+
+            e_blob2, e_blob1, hits_blob2, hits_blob1 = plf.blob_energies_and_hits(t, blob_radius)
             overlap = False
             if len(set(hits_blob1).intersection(hits_blob2)) > 0:
                 overlap = True
