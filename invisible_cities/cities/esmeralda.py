@@ -162,7 +162,7 @@ def final_summary_maker(**kargs)-> Callable:
 
 #Function to define
 def threshold_and_correct_hits(hitc : evm.HitCollection, **kargs) -> evm.HitCollection:
-    """ This function threshold the hits on the charge, redistribute the energy of NN hits to the surrpouding ones and applies energy correction."""
+    """ This function threshold the hits on the charge, redistribute the energy of NN hits to the surrouding ones and applies energy correction."""
     raise NotImplementedError
 
 class class_to_store_info_per_track:
@@ -198,7 +198,7 @@ def esmeralda(files_in, file_out, compression, event_range, print_mod, run_numbe
                                                 args = 'hits',
                                                 out  = 'corrected_hits')
 
-    extract_track_blob_info = fl.map(track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radius),
+    extract_track_blob_info = fl.map(track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radius, z_factor),
                                      args = 'corrected_hits',
                                      out  = ('paolina_hits', 'topology_info'))
 
