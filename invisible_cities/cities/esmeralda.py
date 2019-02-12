@@ -59,6 +59,8 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
         blob1_x, blob1_y, blob1_z,  blob2_x, blob2_y, blob2_z = [], [], [], [], [], []
         energies_blob1, energies_blob2 = [], []
         overlapped_blobs = []
+
+        track_hits = []
         for c, t in enumerate(c_tracks, 0):
             tID = c
             energy = sum([vox.E for vox in t.nodes()])
@@ -120,6 +122,11 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
             energies_blob2   += [e_blob2]
             overlapped_blobs += [overlap]
 
+            for vox in t.nodes():
+                for hit in vox.hits:
+                    hit.track_id = tID
+                    track_hits.append(tr_hit)
+
 
         df = pd.DataFrame({'trackID': track_IDs, 'energy': energies, 'length': lengths,
                            'numb_of_voxels': n_voxels, 'numb_of_hits': n_hits, 'numb_of_tracks': n_tracks,
@@ -131,7 +138,10 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
                            'blob2_x': blob2_x, 'blob2_y': blob2_y, 'blob2_z': blob2_z,
                            'eblob1': energies_blob1, 'eblob2': energies_blob2, 'blob_overlap': overlapped_blobs})
 
-        return df
+        track_hitc = HitCollection(hitc.event, hitc.time)
+        track_hitc.hits = track_hits
+
+        return df, track_hitc
 
     return extract_track_blob_info
 
