@@ -54,7 +54,8 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
 
         track_IDs, energies, lengths = [], [], []
         n_voxels, n_hits, n_tracks   = [], [], []
-        x_min, y_min, z_min, x_max, y_max, z_max, r_max       = [], [], [], [], [], [], []
+        x_min, y_min, z_min, x_max, y_max, z_max, r_max = [], [], [], [], [], [], []
+        x_ave, y_ave, z_ave = [], [], []
         extr1_x, extr1_y, extr1_z, extr2_x, extr2_y, extr2_z  = [], [], [], [], [], []
         blob1_x, blob1_y, blob1_z,  blob2_x, blob2_y, blob2_z = [], [], [], [], [], []
         energies_blob1, energies_blob2 = [], []
@@ -76,6 +77,10 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
             min_z = min([h.Z for v in t.nodes() for h in v.hits])
             max_z = max([h.Z for v in t.nodes() for h in v.hits])
             max_r = max([np.sqrt(h.X*h.X + h.Y*h.Y) for v in t.nodes() for h in v.hits])
+
+            pos = [h.pos for v in t.nodes() for h in v.hits]
+            e   = [h.E   for v in t.nodes() for h in v.hits]
+            ave_pos = np.average(pos, weights=e, axis=0)
 
             extr1, extr2 = plf.find_extrema(t)
             extr1_pos = extr1.XYZ
@@ -103,6 +108,10 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
             y_max += [max_y]
             z_max += [max_z]
             r_max += [max_r]
+
+            x_ave += [ave_pos[0]]
+            y_ave += [ave_pos[1]]
+            z_ave += [ave_pos[2]]
 
             extr1_x += extr1_pos[0]
             extr1_y += extr1_pos[1]
@@ -132,6 +141,7 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
                            'numb_of_voxels': n_voxels, 'numb_of_hits': n_hits, 'numb_of_tracks': n_tracks,
                            'x_min': x_min, 'y_min': y_min, 'z_min': z_min,
                            'x_max': x_max, 'y_max': y_max, 'z_max': z_max, 'r_max': r_max,
+                           'x_ave': x_ave, 'y_ave': y_ave, 'z_ave': z_ave,
                            'extreme1_x': extr1_x, 'extreme1_y': extr1_y, 'extreme1_z': extr1_z,
                            'extreme2_x': extr2_x, 'extreme2_y': extr2_y, 'extreme2_z': extr2_z,
                            'blob1_x': blob1_x, 'blob1_y': blob1_y, 'blob1_z': blob1_z,
