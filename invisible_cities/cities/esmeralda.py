@@ -53,16 +53,15 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
 
         c_tracks = plf.make_track_graphs(mod_voxels)
 
-        track_IDs, energies, lengths = [], [], []
-        n_voxels, n_hits, n_tracks   = [], [], []
-        x_min, y_min, z_min, x_max, y_max, z_max, r_max = [], [], [], [], [], [], []
-        x_ave, y_ave, z_ave = [], [], []
-        extr1_x, extr1_y, extr1_z, extr2_x, extr2_y, extr2_z  = [], [], [], [], [], []
-        blob1_x, blob1_y, blob1_z,  blob2_x, blob2_y, blob2_z = [], [], [], [], [], []
-        energies_blob1, energies_blob2 = [], []
-        overlapped_blobs = []
-
         track_hits = []
+        df = pd.DataFrame(columns=['trackID', 'energy', 'length', 'numb_of_voxels',
+                                   'numb_of_hits', 'numb_of_tracks', 'x_min', 'y_min', 'z_min',
+                                   'x_max', 'y_max', 'z_max', 'r_max', 'x_ave', 'y_ave', 'z_ave',
+                                   'extreme1_x', 'extreme1_y', 'extreme1_z',
+                                   'extreme2_x', 'extreme2_y', 'extreme2_z',
+                                   'blob1_x', 'blob1_y', 'blob1_z',
+                                   'blob2_x', 'blob2_y', 'blob2_z',
+                                   'eblob1', 'eblob2', 'blob_overlap'])
         for c, t in enumerate(c_tracks, 0):
             tID = c
             energy = sum([vox.E for vox in t.nodes()])
@@ -94,60 +93,13 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
             if len(set(hits_blob1).intersection(hits_blob2)) > 0:
                 overlap = True
 
-
-            track_IDs += [tID]
-            energies  += [energy]
-            lengths   += [length]
-            n_voxels  += [numb_of_voxels]
-            n_hits    += [numb_of_hits]
-            n_tracks  += [numb_of_tracks]
-
-            x_min += [min_x]
-            y_min += [min_y]
-            z_min += [min_z]
-            x_max += [max_x]
-            y_max += [max_y]
-            z_max += [max_z]
-            r_max += [max_r]
-
-            x_ave += [ave_pos[0]]
-            y_ave += [ave_pos[1]]
-            z_ave += [ave_pos[2]]
-
-            extr1_x += extr1_pos[0]
-            extr1_y += extr1_pos[1]
-            extr1_z += extr1_pos[2]
-            extr2_x += extr2_pos[0]
-            extr2_y += extr2_pos[1]
-            extr2_z += extr2_pos[2]
-
-            blob1_x += blob_pos1[0]
-            blob1_y += blob_pos1[1]
-            blob1_z += blob_pos1[2]
-            blob2_x += blob_pos2[0]
-            blob2_y += blob_pos2[1]
-            blob2_z += blob_pos2[2]
-
-            energies_blob1   += [e_blob1]
-            energies_blob2   += [e_blob2]
-            overlapped_blobs += [overlap]
+            df.loc[c] = [tID, energy, length, numb_of_voxels, numb_of_hits, numb_of_tracks, min_x, min_y, min_z, max_x, max_y, max_z, max_r, ave_pos[0], ave_pos[1], ave_pos[2], extr1_pos[0], extr1_pos[1], extr1_pos[2]], extr2_pos[0], extr2_pos[1], extr2_pos[2]], blob_pos1[0], blob_pos1[1], blob_pos1[2], blob_pos2[0], blob_pos2[1], blob_pos2[2], e_blob1, e_blob2, overlap]
 
             for vox in t.nodes():
                 for hit in vox.hits:
                     hit.track_id = tID
                     track_hits.append(tr_hit)
 
-
-        df = pd.DataFrame({'trackID': track_IDs, 'energy': energies, 'length': lengths,
-                           'numb_of_voxels': n_voxels, 'numb_of_hits': n_hits, 'numb_of_tracks': n_tracks,
-                           'x_min': x_min, 'y_min': y_min, 'z_min': z_min,
-                           'x_max': x_max, 'y_max': y_max, 'z_max': z_max, 'r_max': r_max,
-                           'x_ave': x_ave, 'y_ave': y_ave, 'z_ave': z_ave,
-                           'extreme1_x': extr1_x, 'extreme1_y': extr1_y, 'extreme1_z': extr1_z,
-                           'extreme2_x': extr2_x, 'extreme2_y': extr2_y, 'extreme2_z': extr2_z,
-                           'blob1_x': blob1_x, 'blob1_y': blob1_y, 'blob1_z': blob1_z,
-                           'blob2_x': blob2_x, 'blob2_y': blob2_y, 'blob2_z': blob2_z,
-                           'eblob1': energies_blob1, 'eblob2': energies_blob2, 'blob_overlap': overlapped_blobs})
 
         track_hitc = HitCollection(hitc.event, hitc.time)
         track_hitc.hits = track_hits
