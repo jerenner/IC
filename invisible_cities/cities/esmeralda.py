@@ -33,11 +33,11 @@ def hits_threshold_and_corrector(map_fname: str, **kargs) -> Callable:
     """Wrapper of correct_hits"""
     return partial(threshold_and_correct_hits(**locals()))
 
-def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radius) -> Callable:
+def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radius, z_factor) -> Callable:
     """ Wrapper of extract_track_blob_info"""
     def extract_track_blob_info(hitc):
         """This function extract relevant info about the tracks and blobs, as well as assigning new field of energy, track_id etc to the HitCollection object (NOTE: we don't want to erase any hits, just redifine some attributes. If we need to cut away some hits to apply paolina functions, it has to be on the copy of the original hits)"""
-        voxels     = plf.voxelize_hits(hitc, vox_size)
+        voxels     = plf.voxelize_hits(hitc.hits, vox_size)
         mod_voxels = plf.drop_end_point_voxels(voxels, energy_threshold, min_voxels)
         tracks     = plf.make_track_graphs(mod_voxels)
 
@@ -51,10 +51,18 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
                 v.energy = v.energy/(1 - z_factor * (max_z - min_z))
 
         c_tracks = plf.make_track_graphs(mod_voxels)
+
+        track_IDs, energies, lengths = [], [], []
+        n_voxels, n_hits, n_tracks   = [], [], []
+        x_min, y_min, z_min, x_max, y_max, z_max, r_max       = [], [], [], [], [], [], []
+        extr1_x, extr1_y, extr1_z, extr2_x, extr2_y, extr2_z  = [], [], [], [], [], []
+        blob1_x, blob1_y, blob1_z,  blob2_x, blob2_y, blob2_z = [], [], [], [], [], []
+        energies_blob1, energies_blob2 = [], []
+        overlapped_blobs = []
         for c, t in enumerate(c_tracks, 0):
-            ID = c
-            length = plf.length(t)
+            tID = c
             energy = sum([vox.E for vox in t.nodes()])
+            length = plf.length(t)
             numb_of_hits = len([h for vox in t.nodes() for h in vox.hits])
             numb_of_voxels = len(t.nodes())
             numb_of_tracks = len(c_tracks)
@@ -71,12 +79,59 @@ def track_blob_info_extractor(vox_size, energy_threshold, min_voxels, blob_radiu
             extr1_pos = extr1.XYZ
             extr2_pos = extr2.XYZ
 
-            blob_pos2, blob_pos1 = plf.blob_centres(t, blob_radius)
+            blob_pos1, blob_pos2 = plf.blob_centres(t, blob_radius)
 
-            e_blob2, e_blob1, hits_blob2, hits_blob1 = plf.blob_energies_and_hits(t, blob_radius)
+            e_blob1, e_blob2, hits_blob1, hits_blob2 = plf.blob_energies_and_hits(t, blob_radius)
             overlap = False
             if len(set(hits_blob1).intersection(hits_blob2)) > 0:
                 overlap = True
+
+
+            track_IDs += [tID]
+            energies  += [energy]
+            lengths   += [length]
+            n_voxels  += [numb_of_voxels]
+            n_hits    += [numb_of_hits]
+            n_tracks  += [numb_of_tracks]
+
+            x_min += [min_x]
+            y_min += [min_y]
+            z_min += [min_z]
+            x_max += [max_x]
+            y_max += [max_y]
+            z_max += [max_z]
+            r_max += [max_r]
+
+            extr1_x += extr1_pos[0]
+            extr1_y += extr1_pos[1]
+            extr1_z += extr1_pos[2]
+            extr2_x += extr2_pos[0]
+            extr2_y += extr2_pos[1]
+            extr2_z += extr2_pos[2]
+
+            blob1_x += blob_pos1[0]
+            blob1_y += blob_pos1[1]
+            blob1_z += blob_pos1[2]
+            blob2_x += blob_pos2[0]
+            blob2_y += blob_pos2[1]
+            blob2_z += blob_pos2[2]
+
+            energies_blob1   += [e_blob1]
+            energies_blob2   += [e_blob2]
+            overlapped_blobs += [overlap]
+
+
+        df = pd.DataFrame({'trackID': track_IDs, 'energy': energies, 'length': lengths,
+                           'numb_of_voxels': n_voxels, 'numb_of_hits': n_hits, 'numb_of_tracks': n_tracks,
+                           'x_min': x_min, 'y_min': y_min, 'z_min': z_min,
+                           'x_max': x_max, 'y_max': y_max, 'z_max': z_max, 'r_max': r_max,
+                           'extreme1_x': extr1_x, 'extreme1_y': extr1_y, 'extreme1_z': extr1_z,
+                           'extreme2_x': extr2_x, 'extreme2_y': extr2_y, 'extreme2_z': extr2_z,
+                           'blob1_x': blob1_x, 'blob1_y': blob1_y, 'blob1_z': blob1_z,
+                           'blob2_x': blob2_x, 'blob2_y': blob2_y, 'blob2_z': blob2_z,
+                           'eblob1': energies_blob1, 'eblob2': energies_blob2, 'blob_overlap': overlapped_blobs})
+
+        return df
 
     return extract_track_blob_info
 
