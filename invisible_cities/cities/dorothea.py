@@ -53,8 +53,8 @@ from .  components import city
 from .  components import print_every
 from .  components import pmap_from_files
 from .  components import peak_classifier
-from .  components import compute_xy_position
-from .  components import build_pointlike_event  as build_pointlike_event_
+from .  components import compute_xy_position_pmts
+from .  components import build_pointlike_event_pmts  as build_pointlike_event_pmts_
 
 
 @city
@@ -77,8 +77,9 @@ def dorothea(files_in, file_out, compression, event_range, print_mod, detector_d
     pmap_passed           = fl.map(attrgetter("passed"), args="selector_output", out="pmap_passed")
     pmap_select           = fl.count_filter(bool, args="pmap_passed")
 
-    reco_algo             = compute_xy_position(detector_db, **global_reco_params)
-    build_pointlike_event = fl.map(build_pointlike_event_(detector_db, run_number, drift_v, reco_algo),
+    #reco_algo             = compute_xy_position(detector_db, **global_reco_params)
+    reco_algo             = compute_xy_position_pmts(detector_db)
+    build_pointlike_event = fl.map(build_pointlike_event_pmts_(detector_db, run_number, drift_v, reco_algo),
                                    args = ("pmap", "selector_output", "event_number", "timestamp"),
                                    out  = "pointlike_event"                                       )
 

@@ -33,6 +33,7 @@ from .. reco                   import         pmaps_functions as pmf
 from .. reco                   import          hits_functions as hif
 from .. reco.tbl_functions     import get_mc_info
 from .. reco.xy_algorithms     import corona
+from .. reco.xy_algorithms     import barycenter
 from .. filters.s1s2_filter    import S12Selector
 from .. filters.s1s2_filter    import pmap_filter
 from .. database               import load_db
@@ -325,10 +326,21 @@ def peak_classifier(**params):
     return partial(pmap_filter, selector)
 
 
+def compute_xy_position_pmts(dbfile):
+    # `reco_params` is the set of parameters for the corona
+    # algorithm either for the full corona or for barycenter
+#    datasipm = load_db.DataSiPM(0) ----> revisar,
+    datapmt = load_db.DataPMT(dbfile, 0)
+
+    def compute_xy_position_pmts(xys, qs):
+        return barycenter(xys, qs)
+    return compute_xy_position_pmts
+
+
 def compute_xy_position(dbfile, **reco_params):
     # `reco_params` is the set of parameters for the corona
     # algorithm either for the full corona or for barycenter
-#    datasipm = load_db.DataSiPM(0) ----> revisar, 
+#    datasipm = load_db.DataSiPM(0) ----> revisar,
     datasipm = load_db.DataSiPM(dbfile, 0)
 
     def compute_xy_position(xys, qs):
@@ -402,6 +414,67 @@ def build_pointlike_event(dbfile, run_number, drift_v, reco):
         return evt
 
     return build_pointlike_event
+
+
+def build_pointlike_event_pmts(dbfile, run_number, drift_v, reco):
+    datapmt = load_db.DataPMT(dbfile, run_number)
+    pmt_xs  = datapmt.X.values
+    pmt_ys  = datapmt.Y.values
+    pmt_xys = np.stack((pmt_xs, pmt_ys), axis=1)
+
+    def build_pointlike_event_pmts(pmap, selector_output, event_number, timestamp):
+        evt = KrEvent(event_number, timestamp * 1e-3)
+
+        evt.nS1 = 0
+        for passed, peak in zip(selector_output.s1_peaks, pmap.s1s):
+            if not passed: continue
+
+            evt.nS1 += 1
+            evt.S1w.append(peak.width)
+            evt.S1h.append(peak.height)
+            evt.S1e.append(peak.total_energy)
+            evt.S1t.append(peak.time_at_max_energy)
+
+        evt.nS2 = 0
+
+        for passed, peak in zip(selector_output.s2_peaks, pmap.s2s):
+            if not passed: continue
+
+            evt.nS2 += 1
+            evt.S2w.append(peak.width / units.mus)
+            evt.S2h.append(peak.height)
+            evt.S2e.append(peak.total_energy)
+            evt.S2t.append(peak.time_at_max_energy)
+
+            xys = pmt_xys[peak.pmts.ids           ]
+            qs  =         peak.pmts.sum_over_times
+            try:
+                clusters = reco(xys, qs)
+            except XYRecoFail:
+                c    = NNN()
+                Z    = tuple(NN for _ in range(0, evt.nS1))
+                DT   = tuple(NN for _ in range(0, evt.nS1))
+                Zrms = NN
+            else:
+                c = clusters[0]
+                Z, DT = compute_z_and_dt(evt.S2t[-1], evt.S1t, drift_v)
+                Zrms  = peak.rms / units.mus
+
+            evt.Nsipm.append(c.nsipm)
+            evt.S2q  .append(c.Q)
+            evt.X    .append(c.X)
+            evt.Y    .append(c.Y)
+            evt.Xrms .append(c.Xrms)
+            evt.Yrms .append(c.Yrms)
+            evt.R    .append(c.R)
+            evt.Phi  .append(c.Phi)
+            evt.DT   .append(DT)
+            evt.Z    .append(Z)
+            evt.Zrms .append(Zrms)
+
+        return evt
+
+    return build_pointlike_event_pmts
 
 
 def hit_builder(dbfile, run_number, drift_v, reco, rebin_slices, rebin_method):
