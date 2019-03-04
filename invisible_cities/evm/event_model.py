@@ -529,3 +529,73 @@ class KrEvent(Event):
         return s
 
     __repr__ =     __str__
+
+
+class EventSummary(Event):
+    """Contains key quantities summarizing a single event."""
+    def __init__(self, event_number, event_time):
+        Event.__init__(self, event_number, event_time)
+
+        self.S1e = -1 # S1 energy
+        self.S1t = -1 # S1 time
+
+        self.nS2   = -1 # number of S2s in the event
+        self.ntrks = -1 # number of tracks in the event
+        self.nhits = -1 # number of hits in the event
+
+        self.S2e0 = -1 # uncorrected S2 energy
+        self.S2ec = -1 # fully corrected S2 energy
+        self.S2q0 = -1 # uncorrected S2 charge
+        self.S2qc = -1 # fully corrected S2 charge
+
+        self.x_avg = 0 # fully-corrected-energy-weighted average x over all hits
+        self.y_avg = 0 # fully-corrected-energy-weighted average y over all hits
+        self.z_avg = 0 # fully-corrected-energy-weighted average z over all hits
+        self.r_avg = 0 # fully-corrected-energy-weighted average r = sqrt(x**2 + y**2) over all hits
+
+        self.x_min = 0 # minimum x over all hits
+        self.y_min = 0 # minimum y over all hits
+        self.z_min = 0 # minimum z over all hits
+        self.r_min = 0 # minimum r = sqrt(x**2 + y**2) over all hits
+
+        self.x_max = 0 # maximum x over all hits
+        self.y_max = 0 # maximum y over all hits
+        self.z_max = 0 # maximum z over all hits
+        self.r_max = 0 # maximum r = sqrt(x**2 + y**2) over all hits
+
+
+    def store(self, table):
+        row = table.row
+
+        row["event_number"] = self.event_number
+        row["timestamp"]    = self.event_time
+        row["S1e"]          = self.S1e
+        row["S1t"]          = self.S1t
+        row["nS2"]          = self.nS2
+        row["ntrks"]        = self.ntrks
+        row["nhits"]        = self.nhits
+        row["S2e0"]         = self.S2e0
+        row["S2ec"]         = self.S2ec
+        row["S2q0"]         = self.S2q0
+        row["S2qc"]         = self.S2qc
+        row["x_avg"]        = self.x_avg
+        row["y_avg"]        = self.y_avg
+        row["z_avg"]        = self.z_avg
+        row["r_avg"]        = self.r_avg
+        row["x_min"]        = self.x_min
+        row["y_min"]        = self.y_min
+        row["z_min"]        = self.z_min
+        row["r_min"]        = self.r_min
+        row["x_max"]        = self.x_max
+        row["y_max"]        = self.y_max
+        row["z_max"]        = self.z_max
+        row["r_max"]        = self.r_max
+        row.append()
+
+    def __str__(self):
+        s = "{0}Event summary\n{0}".format("#"*20 + "\n")
+        for attr in self.__dict__:
+            s += "{}: {}\n".format(attr, getattr(self, attr))
+        return s
+
+    __repr__ =     __str__

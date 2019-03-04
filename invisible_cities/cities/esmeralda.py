@@ -31,11 +31,12 @@ from .. types.ic_types      import NN
 from .. io.         hits_io import          hits_writer
 from .. io.       mcinfo_io import       mc_info_writer
 from .. io.run_and_event_io import run_and_event_writer
+from .. event_summary_io    import event_summary_writer
 
 def hits_threshold_and_corrector(map_fname: str, threshold_charge : float, same_peak : bool, apply_temp : bool) -> Callable:
     """Wrapper of correct_hits"""
     maps=cof.read_maps(map_fname)
-    get_coef=cof.apply_all_correction(maps, apply_temp = apply_temp)    
+    get_coef=cof.apply_all_correction(maps, apply_temp = apply_temp)
     def threshold_and_correct_hits(hitc : evm.HitCollection) -> evm.HitCollection:
         """ This function threshold the hits on the charge, redistribute the energy of NN hits to the surrouding ones and applies energy correction."""
         t = hitc.time
@@ -129,24 +130,54 @@ def track_blob_info_extractor(vox_size, energy_type, energy_threshold, min_voxel
     return extract_track_blob_info
 
 
-def final_summary_maker(**kargs)-> Callable:
-    """I am not sure this is a new function or goes under extract_track_blob_info. To be discussed"""
-    return partial(make_final_summary, **locals())
+def make_event_summary(event_number, timestamp, topology_info, paolina_hits, kdst) -> pd.DataFrame:
+    """Compute the quantities to be placed in the final event summary"""
+    es = evm.EventSummary(event_number, timestamp)
 
+    es.S1e = kdst.S1e.values
+    es.S1t = kdst.S1t.values
+    if(len(es.S1e) == 0 or len(es.S1t) == 0):
+        es.S1e = -1
+        es.S1t = -1
 
-def make_final_summary(class_to_store_info_per_track, kdst_info_table,**kargs)-> class_to_store_event_summary:
-    """I am not sure this is a new function or goes under extract_track_blob_info. To be discussed"""
-    raise NotImplementedError
+    es.nS2 = kdst.nS2.values
+    if(len(es.nS2) == 0):
+        es.nS2 = 0
 
+    es.ntrks = len(topology_info.index)
+    es.nhits = len(paolina_hits)
 
-def summary_writer(hdf5_file, *, compression='ZLIB4'):
-    def write_summary(summary_info : class_to_store_event_summary):
-        raise NotImplementedError
-    return write_summary
+    es.S2e0 = np.sum(kdst.S2e.values)
+    es.S2ec = sum([h.E for h in paolina_hits.hits])
+
+    es.S2q0 = np.sum(kdst.S2q.values)
+    es.S2qc = sum([h.Q for h in paolina_hits.hits])
+
+    es.x_avg = sum([h.X*h.E for h in paolina_hits.hits])
+    es.y_avg = sum([h.Y*h.E for h in paolina_hits.hits])
+    es.z_avg = sum([h.Z*h.E for h in paolina_hits.hits])
+    es.r_avg = sum([(h.X**2 + h.Y**2)**0.5*h.E for h in paolina_hits.hits])
+    if(es.S2ec > 0):
+        es.x_avg /= evt.S2ec
+        es.y_avg /= evt.S2ec
+        es.z_avg /= evt.S2ec
+        es.r_avg /= evt.S2ec
+
+    es.x_min = min([h.X for h in paolina_hits.hits])
+    es.y_min = min([h.Y for h in paolina_hits.hits])
+    es.z_min = min([h.Z for h in paolina_hits.hits])
+    es.r_min = min([(h.X**2 + h.Y**2)**0.5 for h in paolina_hits.hits])
+
+    es.x_max = max([h.X for h in paolina_hits.hits])
+    es.y_max = max([h.Y for h in paolina_hits.hits])
+    es.z_max = max([h.Z for h in paolina_hits.hits])
+    es.r_max = max([(h.X**2 + h.Y**2)**0.5 for h in paolina_hits.hits])
+
+    return es
 
 @city
 def esmeralda(files_in, file_out, compression, event_range, print_mod, run_number, map_fname, **kargs):
-    
+
     threshold_and_correct_hits_NN      = fl.map(hits_threshold_and_corrector(map_fname = map_fname,**locals()),
                                                 args = 'hits',
                                                 out  = 'NN_hits')
@@ -157,11 +188,11 @@ def esmeralda(files_in, file_out, compression, event_range, print_mod, run_numbe
 
     extract_track_blob_info = fl.map(track_blob_info_extractor(vox_size, energy_type, energy_threshold, min_voxels, blob_radius, z_factor),
                                      args = 'corrected_hits',
-                                     out  = ('paolina_hits', 'topology_info'))
+                                     out  = ('topology_info', 'paolina_hits'))
 
     make_final_summary      = fl.map(final_summary_maker(**locals()),
-                                     args = 'topology_info',
-                                     out  = 'event_info')
+                                     args = ('event_number', 'timestamp', 'topology_info', 'paolina_hits', 'kdst'),
+                                     out  = 'event_summary')
 
     event_count_in  = fl.spy_count()
     event_count_out = fl.spy_count()
@@ -172,23 +203,23 @@ def esmeralda(files_in, file_out, compression, event_range, print_mod, run_numbe
         write_event_info = fl.sink(run_and_event_writer(h5out), args=("run_number", "event_number", "timestamp"))
         write_mc_        = mc_info_writer(h5out) if run_number <= 0 else (lambda *_: None)
 
-        write_mc           = fl.sink(             write_mc_, args = ("mc", "event_number"   ))
-        write_hits_NN      = fl.sink(    hits_writer(h5out), args =  "NN_hits"               )
-        write_hits_paolina = fl.sink(    hits_writer(h5out), args =  "paolina_hits"          )
-        write_summary      = fl.sink( summary_writer(h5out), args =  "event_info"            )
+        write_mc             = fl.sink(                   write_mc_, args = ("mc", "event_number"   ))
+        write_hits_NN        = fl.sink(          hits_writer(h5out), args =  "NN_hits"               )
+        write_hits_paolina   = fl.sink(          hits_writer(h5out), args =  "paolina_hits"          )
+        write_event_summary  = fl.sink( event_summary_writer(h5out), args =  "event_summary"       )
 
         return push(source = hits_and_kdst_from_files(files_in),
                     pipe   = pipe(
-                        fl.slice(*event_range, close_all=True)     ,
-                        print_every(print_mod)                     ,
-                        event_count_in       .spy                  ,
-                        fl.branch(threshold_and_correct_hits_NN    ,
-                                  write_hits_NN)                   ,
-                        threshold_and_correct_hits_paolina         ,
-                        extract_track_blob_info                    ,
-                        fl.fork(write_mc                           ,
-                                write_hits_paolina                 ,
-                                (make_final_summary, write_summary),
+                        fl.slice(*event_range, close_all=True)        ,
+                        print_every(print_mod)                        ,
+                        event_count_in       .spy                     ,
+                        fl.branch(threshold_and_correct_hits_NN       ,
+                                  write_hits_NN)                      ,
+                        threshold_and_correct_hits_paolina            ,
+                        extract_track_blob_info                       ,
+                        fl.fork(write_mc                              ,
+                                write_hits_paolina                    ,
+                                (make_event_summary,write_event_summary),
                                 write_event_info)),
                     result = dict(events_in  = event_count_in .future,
                                   events_out = event_count_out.future))

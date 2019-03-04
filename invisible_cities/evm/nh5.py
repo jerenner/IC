@@ -237,6 +237,8 @@ class HitsTable(tb.IsDescription):
     #Zc       = tb.Float64Col(pos=17)
     Ep       = tb.Float64Col(pos=15)
     tr_id    = tb.  Int32Col(pos=16)
+
+
 class VoxelsTable(tb.IsDescription):
     event    = tb.  Int32Col(pos=0)
     X        = tb.Float64Col(pos=1)
@@ -249,3 +251,29 @@ class VoxelsTable(tb.IsDescription):
 class EventPassedFilter(tb.IsDescription):
     event  = tb.Int32Col(pos=0)
     passed = tb. BoolCol(pos=1)
+
+
+class EventSummaryTable(tb.IsDescription):
+    event_number = tb.  Int32Col(pos=0)
+    timestamp    = tb.Float64Col(pos=1)
+    S1e          = tb.Float64Col(pos=2)
+    S1t          = tb.Float64Col(pos=3)
+    nS2          = tb. UInt16Col(pos=4)
+    ntrks        = tb. UInt16Col(pos=5)
+    nhits        = tb. UInt16Col(pos=6)
+    S2e0         = tb.Float64Col(pos=7)
+    S2ec         = tb.Float64Col(pos=8)
+    S2q0         = tb.Float64Col(pos=9)
+    S2qc         = tb.Float64Col(pos=10)
+    x_avg        = tb.Float64Col(pos=11)
+    y_avg        = tb.Float64Col(pos=12)
+    z_avg        = tb.Float64Col(pos=13)
+    r_avg        = tb.Float64Col(pos=14)
+    x_min        = tb.Float64Col(pos=15)
+    y_min        = tb.Float64Col(pos=16)
+    z_min        = tb.Float64Col(pos=17)
+    r_min        = tb.Float64Col(pos=18)
+    x_max        = tb.Float64Col(pos=19)
+    y_max        = tb.Float64Col(pos=20)
+    z_max        = tb.Float64Col(pos=21)
+    r_max        = tb.Float64Col(pos=22)
