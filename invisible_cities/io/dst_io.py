@@ -31,7 +31,9 @@ class TableMismatch(Exception):
         s  = 'The table and dataframe dont match! '
         Exception.__init__(self, s)
 
-def _store_pandas_as_tables(h5out, df, group_name, table_name, compression, descriptive_string, str_col_length=32):
+def _store_pandas_as_tables(h5out, df, group_name, table_name, compression='ZLIB4', descriptive_string=None, str_col_length=32):
+    if len(df) == 0:
+        warnings.warn(f' dataframe is empty', UserWarning)
     if '/'+group_name not in h5out:
         group = h5out.create_group(h5out.root,group_name)
     else:
@@ -39,9 +41,24 @@ def _store_pandas_as_tables(h5out, df, group_name, table_name, compression, desc
     if table_name in group:
         table=getattr(group,table_name)
     else:
+        tabledef={}
+        for indx, colname in enumerate(df.columns):
+            coltype = df[colname].dtype.name
+            try:
+                tabledef[colname] = tb.Col.from_type(coltype, pos = indx)
+            except ValueError:
+                tabledef[colname] = tb.StringCol(32, pos = indx)
+
+        if descriptive_string is None:
+            descriptive_string = ''
         c = tbl.filters(compression)
-        tabledef =df.dtypes.apply(lambda x : tb.Col.from_type(x.name) if x.name !='object' else tb.StringCol(str_col_length)).to_dict()
-        table = h5out.create_table(group,table_name,tabledef,c)
+
+        table = make_table(h5out,
+                           group       = group_name,
+                           name        = table_name,
+                           fformat     = tabledef,
+                           description = descriptive_string,
+                           compression = compression)
     if not np.array_equal(df.columns,table.colnames):
         raise TableMismatch
     for indx in df.index:
