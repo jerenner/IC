@@ -6,6 +6,7 @@ from tables import HDF5ExtError
 import warnings
 
 from .. reco import tbl_functions as tbl
+from .  table_io           import make_table
 
 def load_dst(filename, group, node):
     """load a kdst if filename, group and node correctly found"""
@@ -26,7 +27,7 @@ def load_dsts(dst_list, group, node):
     dsts = [load_dst(filename, group, node) for filename in dst_list]
     return pd.concat(dsts)
 
-class TableMismatch(Exception):
+class TableMismatchError(Exception):
     def __init__(self):
         s  = 'The table and dataframe dont match! '
         Exception.__init__(self, s)
@@ -51,8 +52,6 @@ def _store_pandas_as_tables(h5out, df, group_name, table_name, compression='ZLIB
 
         if descriptive_string is None:
             descriptive_string = ''
-        c = tbl.filters(compression)
-
         table = make_table(h5out,
                            group       = group_name,
                            name        = table_name,
@@ -60,7 +59,7 @@ def _store_pandas_as_tables(h5out, df, group_name, table_name, compression='ZLIB
                            description = descriptive_string,
                            compression = compression)
     if not np.array_equal(df.columns,table.colnames):
-        raise TableMismatch
+        raise TableMismatchError
     for indx in df.index:
         tablerow = table.row
         for colname in table.colnames:
