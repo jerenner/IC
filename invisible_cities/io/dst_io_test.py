@@ -71,8 +71,8 @@ def test_load_dsts_warns_if_not_existing_file(ICDATADIR):
         load_dsts([good_file, wrong_file], group, node)
 
 
-df = data_frames(index=range_indexes(min_size=1),columns=[column('int_value', dtype=int),column('float_val',dtype='float'),column('bool_value',dtype=bool)])
-@given(df = df)
+dataframe = data_frames(index=range_indexes(min_size=1),columns=[column('int_value', dtype=int),column('float_val',dtype='float'),column('bool_value',dtype=bool)])
+@given(df = dataframe)
 def  test_store_pandas_as_tables_exact(config_tmpdir, df):
     filename = config_tmpdir+'dataframe_to_table_exact.h5'
     group_name ='test_group'
@@ -82,8 +82,7 @@ def  test_store_pandas_as_tables_exact(config_tmpdir, df):
     df_read = load_dst(filename, group_name, table_name)
     assert_dataframes_close(df_read, df, False, rtol=1e-5)
 
-df2 = data_frames(index=range_indexes(min_size=1),columns=[column('int_value', dtype=int),column('float_val',dtype='float'),column('bool_value',dtype=bool)])
-@given(df1 = df, df2=df2)
+@given(df1 = dataframe, df2=dataframe)
 def  test_store_pandas_as_tables_2df(config_tmpdir, df1, df2):
     filename = config_tmpdir+'dataframe_to_table_exact.h5'
     group_name ='test_group'
@@ -94,8 +93,8 @@ def  test_store_pandas_as_tables_2df(config_tmpdir, df1, df2):
     df_read = load_dst(filename, group_name, table_name)
     assert_dataframes_close(df_read, pd.concat([df1, df2]).reset_index(drop=True),False, rtol=1e-5)
 
-df3 = data_frames(index=range_indexes(min_size=1),columns=[column('int_value', dtype=int),column('float_val',dtype='float')])
-@given(df1 = df, df2=df3)
+dataframe_diff = data_frames(index=range_indexes(min_size=1),columns=[column('int_value', dtype=int),column('float_val',dtype='float')])
+@given(df1 = dataframe, df2=dataframe_diff)
 def  test_store_pandas_as_tables_raises_exception(config_tmpdir, df1, df2):
     filename = config_tmpdir+'dataframe_to_table_exact.h5'
     group_name ='test_group'
