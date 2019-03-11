@@ -2,20 +2,21 @@ import os
 import pandas as pd
 import tables as tb
 from ..core.testing_utils import assert_dataframes_close
-from .      dst_io        import load_dst
-from .      dst_io        import load_dsts
-from .      dst_io        import _store_pandas_as_tables
-from .      dst_io        import TableMismatchError
+from ..core.exceptions    import TableMismatch
+from . dst_io             import load_dst
+from . dst_io             import load_dsts
+from . dst_io             import _store_pandas_as_tables
 
 import warnings
 import pytest
-import hypothesis.strategies as st
-from numpy.testing           import assert_raises
+
+from numpy     .testing      import assert_raises
+from hypothesis              import given
 from hypothesis.extra.pandas import columns
 from hypothesis.extra.pandas import data_frames
 from hypothesis.extra.pandas import column
 from hypothesis.extra.pandas import range_indexes
-from hypothesis              import given
+
 
 def test_load_dst(KrMC_kdst):
     df_read = load_dst(*KrMC_kdst[0].file_info)
@@ -101,4 +102,4 @@ def  test_store_pandas_as_tables_raises_exception(config_tmpdir, df1, df2):
     table_name = 'table_name_2'
     with tb.open_file(filename,'w') as h5out:
         _store_pandas_as_tables(h5out, df1, group_name,table_name)
-        assert_raises(TableMismatchError, _store_pandas_as_tables,h5out, df2, group_name,table_name)
+        assert_raises(TableMismatch, _store_pandas_as_tables,h5out, df2, group_name,table_name)
