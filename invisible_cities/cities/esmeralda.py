@@ -40,7 +40,7 @@ def hits_threshold_and_corrector(map_fname: str, threshold_charge : float, same_
     def threshold_and_correct_hits(hitc : evm.HitCollection) -> evm.HitCollection:
         """ This function threshold the hits on the charge, redistribute the energy of NN hits to the surrouding ones and applies energy correction."""
         t = hitc.time
-        cor_hitc = HitCollection(hitc.event, t)
+        cor_hitc = evm.HitCollection(hitc.event, t)
         cor_hits = hif.threshold_hits(hitc.hits, threshold_charge)
         cor_hits = hif.merge_NN_hits(cor_hits, same_peak = same_peak)
         X  = np.array([h.X for h in cor_hits])
@@ -122,7 +122,7 @@ def track_blob_info_extractor(vox_size, energy_type, energy_threshold, min_voxel
                     track_hits.append(tr_hit)
 
 
-        track_hitc = HitCollection(hitc.event, hitc.time)
+        track_hitc = evm.HitCollection(hitc.event, hitc.time)
         track_hitc.hits = track_hits
 
         return df, track_hitc
