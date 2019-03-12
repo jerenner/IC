@@ -31,7 +31,7 @@ from .. types.ic_types      import NN
 from .. io.         hits_io import          hits_writer
 from .. io.       mcinfo_io import       mc_info_writer
 from .. io.run_and_event_io import run_and_event_writer
-
+from .. io.          dst_io import _store_pandas_as_tables
 def hits_threshold_and_corrector(map_fname: str, threshold_charge : float, same_peak : bool, apply_temp : bool) -> Callable:
     """Wrapper of correct_hits"""
     maps=cof.read_maps(map_fname)
@@ -143,6 +143,9 @@ def summary_writer(hdf5_file, *, compression='ZLIB4'):
     def write_summary(summary_info : class_to_store_event_summary):
         raise NotImplementedError
     return write_summary
+
+def track_writer(h5out, compression='ZLIB4', group_name='PAOLINA', table_name='Tracks', descriptive_string='Track information',str_col_length=32):
+    return partial(_store_pandas_as_tables,h5out=h5out, compression = compression, group_name=group_name, table_name=table_name, descriptive_string=descriptive_string, str_col_length=str_col_length)
 
 @city
 def esmeralda(files_in, file_out, compression, event_range, print_mod, run_number, map_fname, **kargs):
