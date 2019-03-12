@@ -147,6 +147,11 @@ def summary_writer(hdf5_file, *, compression='ZLIB4'):
 def track_writer(h5out, compression='ZLIB4', group_name='PAOLINA', table_name='Tracks', descriptive_string='Track information',str_col_length=32):
     return partial(_store_pandas_as_tables,h5out=h5out, compression = compression, group_name=group_name, table_name=table_name, descriptive_string=descriptive_string, str_col_length=str_col_length)
 
+
+def summary_writer(h5out, compression='ZLIB4', group_name='PAOLINA', table_name='Summary', descriptive_string='Event summary information',str_col_length=32):
+    return partial(_store_pandas_as_tables,h5out=h5out, compression = compression, group_name=group_name, table_name=table_name, descriptive_string=descriptive_string, str_col_length=str_col_length)
+
+
 @city
 def esmeralda(files_in, file_out, compression, event_range, print_mod, run_number, map_fname, **kargs):
     
