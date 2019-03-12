@@ -133,10 +133,6 @@ def make_event_summary(track_df:pd.DataFrame, kdst:pd.DataFrame, paolina_hitc:ev
     """Extract event summary info"""
     pass
 
-def summary_writer(hdf5_file, *, compression='ZLIB4'):
-    def write_summary(summary_info : class_to_store_event_summary):
-        raise NotImplementedError
-    return write_summary
 
 def track_writer(h5out, compression='ZLIB4', group_name='PAOLINA', table_name='Tracks', descriptive_string='Track information',str_col_length=32):
     return partial(_store_pandas_as_tables,h5out=h5out, compression = compression, group_name=group_name, table_name=table_name, descriptive_string=descriptive_string, str_col_length=str_col_length)
