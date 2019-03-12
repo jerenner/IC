@@ -157,8 +157,8 @@ def esmeralda(files_in, file_out, compression, event_range, print_mod, run_numbe
                                      args = 'corrected_hits',
                                      out  = ('paolina_hits', 'topology_info'))
 
-    make_final_summary      = fl.map(final_summary_maker(**locals()),
-                                     args = 'topology_info',
+    make_final_summary      = fl.map(make_event_summary,
+                                     args = ('topology_info','kdst','paolina_hits','event_number', 'timestamp'),
                                      out  = 'event_info')
 
     event_count_in  = fl.spy_count()
