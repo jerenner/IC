@@ -11,6 +11,7 @@ This city is correcting hits and voxelizing them. The input is penthesilea outpu
 """
 import tables as tb
 import numpy  as np
+import pandas as pd
 from functools   import partial
 from typing      import Tuple
 from typing      import Callable
