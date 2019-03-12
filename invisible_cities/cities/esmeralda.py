@@ -35,7 +35,7 @@ from .. io.          dst_io import _store_pandas_as_tables
 def hits_threshold_and_corrector(map_fname: str, threshold_charge : float, same_peak : bool, apply_temp : bool) -> Callable:
     """Wrapper of correct_hits"""
     maps=cof.read_maps(map_fname)
-    get_coef=cof.apply_all_correction(maps, apply_temp = apply_temp)    
+    get_coef=cof.apply_all_correction(maps, apply_temp = apply_temp)
     def threshold_and_correct_hits(hitc : evm.HitCollection) -> evm.HitCollection:
         """ This function threshold the hits on the charge, redistribute the energy of NN hits to the surrouding ones and applies energy correction."""
         t = hitc.time
