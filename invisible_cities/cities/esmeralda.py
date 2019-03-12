@@ -144,17 +144,22 @@ def summary_writer(h5out, compression='ZLIB4', group_name='PAOLINA', table_name=
 
 
 @city
-def esmeralda(files_in, file_out, compression, event_range, print_mod, run_number, map_fname, vox_size, energy_type, energy_threshold, min_voxels, blob_radius, z_factor, threshold_charge_NN,threshold_charge_PL,same_peak,apply_temp):
-    
-    threshold_and_correct_hits_NN      = fl.map(hits_threshold_and_corrector(map_fname = map_fname,threshold_charge=threshold_charge_NN,same_peak=same_peak,apply_temp=apply_temp),
+def esmeralda(files_in, file_out, compression, event_range, print_mod, run_number,
+              cor_hits_params_NN = dict(),
+              cor_hits_params_PL = dict(),
+              paolina_params     = dict()):
+    # cor_hits_params_NN   are map_fname, threshold_charge, same_peak, apply_temp
+    # cor_hits_params_PL   are map_fname, threshold_charge, same_peak, apply_temp
+    # paolina_params       are vox_size,  energy_type, energy_threshold, min_voxels, blob_radius, z_factor
+    threshold_and_correct_hits_NN      = fl.map(hits_threshold_and_corrector(**cor_hits_params_NN),
                                                 args = 'hits',
                                                 out  = 'NN_hits')
 
-    threshold_and_correct_hits_paolina = fl.map(hits_threshold_and_corrector(map_fname = map_fname,threshold_charge=threshold_charge_NN,same_peak=same_peak,apply_temp=apply_temp),
+    threshold_and_correct_hits_paolina = fl.map(hits_threshold_and_corrector(**cor_hits_params_PL),
                                                 args = 'hits',
                                                 out  = 'corrected_hits')
 
-    extract_track_blob_info = fl.map(track_blob_info_extractor(vox_size, energy_type, energy_threshold, min_voxels, blob_radius, z_factor),
+    extract_track_blob_info = fl.map(track_blob_info_extractor(**paolina_params),
                                      args = 'corrected_hits',
                                      out  = ('paolina_hits', 'topology_info'))
 
