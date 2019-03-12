@@ -113,7 +113,7 @@ def track_blob_info_extractor(vox_size, energy_type, energy_threshold, min_voxel
             if len(set(hits_blob1).intersection(hits_blob2)) > 0:
                 overlap = True
 
-            df.loc[c] = [tID, energy, length, numb_of_voxels, numb_of_hits, numb_of_tracks, min_x, min_y, min_z, max_x, max_y, max_z, max_r, ave_pos[0], ave_pos[1], ave_pos[2], extr1_pos[0], extr1_pos[1], extr1_pos[2]], extr2_pos[0], extr2_pos[1], extr2_pos[2]], blob_pos1[0], blob_pos1[1], blob_pos1[2], blob_pos2[0], blob_pos2[1], blob_pos2[2], e_blob1, e_blob2, overlap]
+            df.loc[c] = [tID, energy, length, numb_of_voxels, numb_of_hits, numb_of_tracks, min_x, min_y, min_z, max_x, max_y, max_z, max_r, ave_pos[0], ave_pos[1], ave_pos[2], extr1_pos[0], extr1_pos[1], extr1_pos[2], extr2_pos[0], extr2_pos[1], extr2_pos[2], blob_pos1[0], blob_pos1[1], blob_pos1[2], blob_pos2[0], blob_pos2[1], blob_pos2[2], e_blob1, e_blob2, overlap]
 
             for vox in t.nodes():
                 for hit in vox.hits:
