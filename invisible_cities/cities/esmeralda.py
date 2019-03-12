@@ -119,7 +119,7 @@ def track_blob_info_extractor(vox_size, energy_type, energy_threshold, min_voxel
             for vox in t.nodes():
                 for hit in vox.hits:
                     hit.track_id = tID
-                    track_hits.append(tr_hit)
+                    track_hits.append(hit)
 
 
         track_hitc = evm.HitCollection(hitc.event, hitc.time)
