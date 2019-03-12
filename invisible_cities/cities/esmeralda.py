@@ -130,9 +130,58 @@ def track_blob_info_extractor(vox_size, energy_type, energy_threshold, min_voxel
     return extract_track_blob_info
 
 
-def make_event_summary(track_df:pd.DataFrame, kdst:pd.DataFrame, paolina_hitc:evm.HitCollection, event_number:int, timestamp:float)-> pd.DataFrame:
-    """Extract event summary info"""
-    pass
+def make_event_summary(event_number, timestamp, topology_info, paolina_hits, kdst) -> pd.DataFrame:
+    """Compute the quantities to be placed in the final event summary"""
+    es = pd.DataFrame(columns=['event_number', 'timestamp', 'S1e', 'S1t',
+                               'nS2', 'ntrks', 'nhits', 'S2e0', 'S2ec',
+                               'S2q0', 'S2qc', 'x_avg', 'y_avg', 'z_avg',
+                               'r_avg', 'x_min', 'y_min', 'z_min', 'r_min',
+                               'x_max', 'y_max', 'z_max', 'r_max'])
+
+    S1e = kdst.S1e.values
+    S1t = kdst.S1t.values
+    if(len(S1e) == 0 or len(S1t) == 0):
+        S1e = -1
+        S1t = -1
+
+    nS2 = kdst.nS2.values
+    if(len(nS2) == 0):
+        nS2 = 0
+
+    ntrks = len(topology_info.index)
+    nhits = len(paolina_hits)
+
+    S2e0 = np.sum(kdst.S2e.values)
+    S2ec = sum([h.E for h in paolina_hits.hits])
+
+    S2q0 = np.sum(kdst.S2q.values)
+    S2qc = sum([h.Q for h in paolina_hits.hits])
+
+    x_avg = sum([h.X*h.E for h in paolina_hits.hits])
+    y_avg = sum([h.Y*h.E for h in paolina_hits.hits])
+    z_avg = sum([h.Z*h.E for h in paolina_hits.hits])
+    r_avg = sum([(h.X**2 + h.Y**2)**0.5*h.E for h in paolina_hits.hits])
+    if(S2ec > 0):
+        x_avg /= evt.S2ec
+        y_avg /= evt.S2ec
+        z_avg /= evt.S2ec
+        r_avg /= evt.S2ec
+
+    x_min = min([h.X for h in paolina_hits.hits])
+    y_min = min([h.Y for h in paolina_hits.hits])
+    z_min = min([h.Z for h in paolina_hits.hits])
+    r_min = min([(h.X**2 + h.Y**2)**0.5 for h in paolina_hits.hits])
+
+    x_max = max([h.X for h in paolina_hits.hits])
+    y_max = max([h.Y for h in paolina_hits.hits])
+    z_max = max([h.Z for h in paolina_hits.hits])
+    r_max = max([(h.X**2 + h.Y**2)**0.5 for h in paolina_hits.hits])
+
+    es.loc[0] = [event_number, timestamp, S1e, S1t, nS2, ntrks, nhits, S2e0,
+                S2ec, S2q0, S2qc, x_avg, y_avg, z_avg, r_avg, x_min, y_min,
+                z_min, r_min, x_max, y_max, z_max, r_max]
+
+    return es
 
 
 def track_writer(h5out, compression='ZLIB4', group_name='PAOLINA', table_name='Tracks', descriptive_string='Track information',str_col_length=32):
