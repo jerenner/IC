@@ -129,15 +129,9 @@ def track_blob_info_extractor(vox_size, energy_type, energy_threshold, min_voxel
     return extract_track_blob_info
 
 
-def final_summary_maker(**kargs)-> Callable:
-    """I am not sure this is a new function or goes under extract_track_blob_info. To be discussed"""
-    return partial(make_final_summary, **locals())
-
-
-def make_final_summary(class_to_store_info_per_track, kdst_info_table,**kargs)-> class_to_store_event_summary:
-    """I am not sure this is a new function or goes under extract_track_blob_info. To be discussed"""
-    raise NotImplementedError
-
+def make_event_summary(track_df:pd.DataFrame, kdst:pd.DataFrame, paolina_hitc:evm.HitCollection, event_number:int, timestamp:float)-> pd.DataFrame:
+    """Extract event summary info"""
+    pass
 
 def summary_writer(hdf5_file, *, compression='ZLIB4'):
     def write_summary(summary_info : class_to_store_event_summary):
