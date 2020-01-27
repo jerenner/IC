@@ -18,14 +18,14 @@ from invisible_cities.cities.components import city
 from invisible_cities.dataflow import dataflow as fl
 
 
-def get_file_structure(filename):
+def get_file_structure( filename ):
     """
     From a given filename, it returns a dictionary whose
     elements are the atributes of each of the nodes of the .h5,
     being the nodes of type tb.Table or tb.EArray.
     """
     d = dict()
-    with tb.open_file(filename) as h5file:
+    with tb.open_file( filename ) as h5file:
         for node in h5file.walk_nodes():
             ####### Table #########
             if isinstance(node, tb.Table):
@@ -48,54 +48,35 @@ def get_file_structure(filename):
     return d
 
 
-# def create_file_from_structure(filename, structure):
-#     with tb.open_file(filename, "w") as h5file:
-#         for node in structure:
-#             if structure[node]["nodetype"] is tb.Table:
-#
-#                 h5file.create_table(structure[node]["where"]                   ,
-#                                     structure[node]["name"]                    ,
-#                                     description= structure[node]["description"],
-#                                     title      = structure[node]["title"]      ,
-#                                     filters    = structure[node]["filters"]    ,
-#                                     createparents=True)
-#
-#             if structure[node]["nodetype"] is tb.EArray:
-#
-#                 h5file.create_earray(structure[node]["where"]        ,
-#                                      structure[node]["name"]         ,
-#                                      atom  = structure[node]["atom"] ,
-#                                      shape = structure[node]["shape"],
-#                                      title = structure[node]["title"],
-#                                      createparents = True)
+def create_file_from_structure( filename, structure ):
+    with tb.open_file(filename, "w") as h5file:
+        for node in structure:
+            if structure[node]["nodetype"] is tb.Table:
+
+                h5file.create_table(structure[node]["where"]                   ,
+                                    structure[node]["name"]                    ,
+                                    description= structure[node]["description"],
+                                    title      = structure[node]["title"]      ,
+                                    filters    = structure[node]["filters"]    ,
+                                    createparents=True)
+
+            if structure[node]["nodetype"] is tb.EArray:
+
+                h5file.create_earray(structure[node]["where"]        ,
+                                     structure[node]["name"]         ,
+                                     atom  = structure[node]["atom"] ,
+                                     shape = structure[node]["shape"],
+                                     title = structure[node]["title"],
+                                     createparents = True)
 
 
-def copy_file_structure(h5file, structure):
-    for node in structure:
-        if structure[node]["nodetype"] is tb.Table:
-            h5file.create_table(structure[node]["where"]                   ,
-                                structure[node]["name"]                    ,
-                                description= structure[node]["description"],
-                                title      = structure[node]["title"]      ,
-                                filters    = structure[node]["filters"]    ,
-                                createparents=True)
-
-        if structure[node]["nodetype"] is tb.EArray:
-            h5file.create_earray(structure[node]["where"]        ,
-                                 structure[node]["name"]         ,
-                                 atom  = structure[node]["atom"] ,
-                                 shape = structure[node]["shape"],
-                                 title = structure[node]["title"],
-                                 createparents = True)
-
-
-def general_source(files_in):
+def general_source( files_in ):
     for file in files_in:
         with tb.open_file(file, "r") as h5file:
             ######
             d_ = dict()
             for node in h5file.walk_nodes():
-                if isinstance(node, (tb.Table, tb.EArray)):
+                if not isinstance(node, (tb.Group, tb.group.RootGroup)):
                     d_[node._v_pathname] = node.read()
             ######
             d = dict()
@@ -126,7 +107,7 @@ def general_writer(h5file, d):
                 continue
         # fill event data
         node = h5file.get_node( nodename )
-        node.append(d[nodename])
+        node.append( d[nodename] )
     h5file.flush()
 
 
@@ -141,27 +122,26 @@ def selectioncity(files_in, file_out,
                   event_range):
 
     ###### get file structure and create empty file_out ####
-    structure = get_file_structure(np.random.choice(files_in))
-    # create_file_from_structure(file_out, structure)
+    structure = get_file_structure( np.random.choice( files_in ) )
+    create_file_from_structure( file_out, structure )
 
     #### define filter #####
-    selected_events = np.loadtxt(selected_events_filename, dtype=int)
-    filter = fl.filter(partial(filter_event, selected_events), args="/Run/events")
+    selected_events = np.loadtxt( selected_events_filename, dtype=int)
+    filter = fl.filter( partial(filter_event, selected_events), args="/Run/events")
 
     ###### define counters #####
     count_all  = fl.spy_count()
     count_pass = fl.spy_count()
 
-    with tb.open_file(file_out, "w") as h5file:
+    with tb.open_file( file_out, "r+" ) as h5file:
+        writer = fl.sink( partial( general_writer, h5file ) )
 
-        copy_file_structure(h5file, structure)
-
-        writer = fl.sink(partial(general_writer, h5file ))
-
-        return fl.push(source = general_source(files_in),
-                       pipe   = fl.pipe(count_all  .spy,
-                                        filter         ,
-                                        count_pass.spy ,
-                                        writer)        ,
+        result = fl.push(source = general_source( files_in ),
+                         pipe   = fl.pipe( count_all  .spy,
+                                           filter         ,
+                                           count_pass.spy ,
+                                           writer)        ,
                          result = dict(n_total = count_all .future,
-                                       n_pass  = count_pass.future))
+                                       n_pass  = count_pass.future) )
+
+        print(result)
