@@ -1,5 +1,4 @@
 import os
-import glob
 import numpy  as np
 import tables as tb
 
@@ -10,26 +9,29 @@ from invisible_cities.core.configure import configure
 from .selectioncity import selectioncity
 
 
-@fixture
-def testfile(filetype):
-    return glob.glob(f"/Users/gonzalo/Documents/NEXT/DATA/{filetype}/*")[0]
+@fixture(params="rwfs pmaps".split())
+def testfile(request, ICDATADIR):
+    filetype = request.param
+    if   filetype == "rwfs":
+        return os.path.join(ICDATADIR, "run_7775_0120_trigger1_waveforms.h5")
+    elif filetype == "pmaps":
+        return os.path.join(ICDATADIR, "pmaps_0000_7505_trigger1_v1.1.0_20190801_krbg1600.h5")
 
 
 @fixture
-def selectionfile(testfile, filetype, n_evts=2):
+def selectionfile(testfile, config_tmpdir, n_evts=2):
     with tb.open_file(testfile, "r") as h5file:
         events_node = h5file.get_node("/Run/events")
         events = events_node.read()["evt_number"]
     selevents = np.sort(np.random.choice(events, n_evts))
 
-    selfile = "/Users/gonzalo/Documents/NEXT/selectioncity" + f"/{filetype}" + "/selected_events.txt"
+    selfile = os.path.join(config_tmpdir, "selected_events.txt")
     with open(selfile, "w") as file:
         for event in selevents:
             file.write(f"{event}\n")
     return selfile
 
 
-@mark.parametrize("filetype", ("pmaps", "rwfs"))
 def test_selectioncity_contain_structure(testfile, selectionfile, output_tmpdir):
     ## run selection city ###
     PATH_IN  = testfile
@@ -42,14 +44,14 @@ def test_selectioncity_contain_structure(testfile, selectionfile, output_tmpdir)
                      event_range = all ))
     selectioncity(**conf)
 
-    ## test structure ##
+    ### test  ###
     with tb.open_file(PATH_IN , "r") as h5in, \
          tb.open_file(PATH_OUT, "r") as h5out:
 
          for node in h5in.walk_nodes():
              assert node in h5out
 
-@mark.parametrize("filetype", ("pmaps", "rwfs"))
+
 def test_selectioncity_contain_selected_events_uniquely(testfile, selectionfile, output_tmpdir):
     ## run selection city ###
     PATH_IN  = testfile
@@ -70,10 +72,9 @@ def test_selectioncity_contain_selected_events_uniquely(testfile, selectionfile,
          outevents= h5out.get_node("/Run/events").read()["evt_number"]
 
          assert (np.sort( np.loadtxt(selectionfile, dtype=int) ) == np.sort(outevents)).all()
-         assert np.isin(outevents                             , inevents).all()
+         assert np.isin(outevents, inevents).all()
 
 
-@mark.parametrize("filetype", ("pmaps", "rwfs"))
 def test_selectioncity_contain_event_data(testfile, selectionfile, output_tmpdir):
     ## run selection city ###
     PATH_IN  = testfile
@@ -91,8 +92,7 @@ def test_selectioncity_contain_event_data(testfile, selectionfile, output_tmpdir
          tb.open_file(PATH_OUT, "r") as h5out:
 
          events = np.loadtxt(selectionfile, dtype=int)
-         events    = h5out.get_node("/Run/events").read()["evt_number"]
-         events_in = h5in.get_node("/Run/events").read()["evt_number"]
+         events_in = h5in .get_node("/Run/events").read()["evt_number"]
 
          for node in h5out.walk_nodes():
              if isinstance(node, tb.Table):
