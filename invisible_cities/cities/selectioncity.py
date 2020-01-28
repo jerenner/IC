@@ -39,7 +39,6 @@ def get_file_structure(filename):
             if isinstance(node, tb.EArray):
                 shape = [*node.shape]
                 shape[node.maindim] = 0
-
                 d[node._v_pathname] = dict(nodetype = tb.EArray              ,
                                            where = node._v_parent._v_pathname,
                                            name  = node.name                 ,
@@ -49,26 +48,45 @@ def get_file_structure(filename):
     return d
 
 
-def create_file_from_structure(filename, structure):
-    with tb.open_file(filename, "w") as h5file:
-        for node in structure:
-            if structure[node]["nodetype"] is tb.Table:
+# def create_file_from_structure(filename, structure):
+#     with tb.open_file(filename, "w") as h5file:
+#         for node in structure:
+#             if structure[node]["nodetype"] is tb.Table:
+#
+#                 h5file.create_table(structure[node]["where"]                   ,
+#                                     structure[node]["name"]                    ,
+#                                     description= structure[node]["description"],
+#                                     title      = structure[node]["title"]      ,
+#                                     filters    = structure[node]["filters"]    ,
+#                                     createparents=True)
+#
+#             if structure[node]["nodetype"] is tb.EArray:
+#
+#                 h5file.create_earray(structure[node]["where"]        ,
+#                                      structure[node]["name"]         ,
+#                                      atom  = structure[node]["atom"] ,
+#                                      shape = structure[node]["shape"],
+#                                      title = structure[node]["title"],
+#                                      createparents = True)
 
-                h5file.create_table(structure[node]["where"]                   ,
-                                    structure[node]["name"]                    ,
-                                    description= structure[node]["description"],
-                                    title      = structure[node]["title"]      ,
-                                    filters    = structure[node]["filters"]    ,
-                                    createparents=True)
 
-            if structure[node]["nodetype"] is tb.EArray:
+def copy_file_structure(h5file, structure):
+    for node in structure:
+        if structure[node]["nodetype"] is tb.Table:
+            h5file.create_table(structure[node]["where"]                   ,
+                                structure[node]["name"]                    ,
+                                description= structure[node]["description"],
+                                title      = structure[node]["title"]      ,
+                                filters    = structure[node]["filters"]    ,
+                                createparents=True)
 
-                h5file.create_earray(structure[node]["where"]        ,
-                                     structure[node]["name"]         ,
-                                     atom  = structure[node]["atom"] ,
-                                     shape = structure[node]["shape"],
-                                     title = structure[node]["title"],
-                                     createparents = True)
+        if structure[node]["nodetype"] is tb.EArray:
+            h5file.create_earray(structure[node]["where"]        ,
+                                 structure[node]["name"]         ,
+                                 atom  = structure[node]["atom"] ,
+                                 shape = structure[node]["shape"],
+                                 title = structure[node]["title"],
+                                 createparents = True)
 
 
 def general_source(files_in):
@@ -77,7 +95,7 @@ def general_source(files_in):
             ######
             d_ = dict()
             for node in h5file.walk_nodes():
-                if not isinstance(node, (tb.Group, tb.group.RootGroup)):
+                if isinstance(node, (tb.Table, tb.EArray)):
                     d_[node._v_pathname] = node.read()
             ######
             d = dict()
@@ -124,7 +142,7 @@ def selectioncity(files_in, file_out,
 
     ###### get file structure and create empty file_out ####
     structure = get_file_structure(np.random.choice(files_in))
-    create_file_from_structure(file_out, structure)
+    # create_file_from_structure(file_out, structure)
 
     #### define filter #####
     selected_events = np.loadtxt(selected_events_filename, dtype=int)
@@ -134,7 +152,10 @@ def selectioncity(files_in, file_out,
     count_all  = fl.spy_count()
     count_pass = fl.spy_count()
 
-    with tb.open_file( file_out, "r+" ) as h5file:
+    with tb.open_file(file_out, "w") as h5file:
+
+        copy_file_structure(h5file, structure)
+
         writer = fl.sink(partial(general_writer, h5file ))
 
         return fl.push(source = general_source(files_in),
