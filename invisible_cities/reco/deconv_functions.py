@@ -1,5 +1,7 @@
 import numpy  as np
 import pandas as pd
+import cupy as cp
+import cupyx as cpx
 
 from typing  import List
 from typing  import Tuple
@@ -11,6 +13,8 @@ from scipy                  import interpolate
 from scipy.signal           import fftconvolve
 from scipy.signal           import convolve
 from scipy.spatial.distance import cdist
+
+from cusignal.convolution.convolve import convolve as cusignal_convolve
 
 from ..core .core_functions import shift_to_bin_centers
 from ..core .core_functions import in_range
@@ -202,7 +206,7 @@ def find_nearest(array : np.ndarray,
     idx   = (np.abs    (array - value)).argmin()
     return array[idx]
 
-
+@profile
 def deconvolve(n_iterations  : int,
                iteration_tol : float,
                sample_width  : List[float],
@@ -242,13 +246,44 @@ def deconvolve(n_iterations  : int,
         inter_signal, inter_pos = deconv_input(data, weight)
         columns       = var_name[:len(data)]
         psf_deco      = psf.factor.values.reshape(psf.loc[:, columns].nunique().values)
-        deconv_image  = np.nan_to_num(richardson_lucy(inter_signal, psf_deco,
+        deconv_image  = np.nan_to_num(richardson_lucy_gpu(inter_signal, psf_deco,
                                                       n_iterations, iteration_tol))
 
         return deconv_image, inter_pos
 
     return deconvolve
 
+@profile
+def richardson_lucy_gpu(image, psf, iterations=50, iter_thr=0.):
+
+    # The "cusignal" package automatically determines and uses the faster convolution method.
+    convolve_method = cusignal_convolve
+
+    image      = cp.asarray(image.astype(np.float))
+    psf        = cp.asarray(psf.astype(np.float))
+    im_deconv  = 0.5 * cp.asarray(np.ones(image.shape))
+    s          = slice(None, None, -1)
+    psf_mirror = psf[(s,) * psf.ndim] ### Allow for n-dim mirroring.
+    eps        = np.finfo(image.dtype).eps ### Protection against 0 value
+    ref_image  = image/image.max()
+
+    #print("Convoluting image shape {}, psf shape {}".format(image.shape,psf.shape))
+    for i in range(iterations):
+        x = convolve_method(im_deconv, psf, 'same')
+        cp.place(x, x==0, eps) ### Protection against 0 value
+        relative_blur = image / x
+        im_deconv *= convolve_method(relative_blur, psf_mirror, 'same')
+
+        #with cpx.errstate(divide='ignore', invalid='ignore'):
+        rel_diff = cp.sum(cp.divide(((im_deconv/im_deconv.max() - ref_image)**2), ref_image))
+        if rel_diff < iter_thr: ### Break if a given threshold is reached.
+            break
+
+        ref_image = im_deconv/im_deconv.max()
+
+    return im_deconv.get()
+
+@profile
 def richardson_lucy(image, psf, iterations=50, iter_thr=0.):
     """Richardson-Lucy deconvolution (modification from scikit-image package).
 
@@ -308,6 +343,7 @@ def richardson_lucy(image, psf, iterations=50, iter_thr=0.):
     eps        = np.finfo(image.dtype).eps ### Protection against 0 value
     ref_image  = image/image.max()
 
+    #print("Convoluting image shape {}, psf shape {}".format(image.shape,psf.shape))
     for i in range(iterations):
         x = convolve_method(im_deconv, psf, 'same')
         np.place(x, x==0, eps) ### Protection against 0 value
