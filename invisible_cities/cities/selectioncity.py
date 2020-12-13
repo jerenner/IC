@@ -99,7 +99,7 @@ def general_source(files_in):
                     d_[node._v_pathname] = node.read()
             ######
             d = dict()
-            events = d_["/Run/events"]["evt_number"]
+            events = d_["/Summary/Events"]["event"]
             for i, event in enumerate( events ):
                 selevent = np.eye(1, M=len(events), k=i, dtype=bool)[0]
                 for node in d_:
@@ -131,7 +131,7 @@ def general_writer(h5file, d):
 
 
 def filter_event(selected_events, event_ts):
-    sel = np.isin( event_ts["evt_number"], selected_events)
+    sel = np.isin( event_ts["event"], selected_events)
     return bool(sel)
 
 
@@ -146,7 +146,7 @@ def selectioncity(files_in, file_out,
 
     #### define filter #####
     selected_events = np.loadtxt(selected_events_filename, dtype=int)
-    filter = fl.filter(partial(filter_event, selected_events), args="/Run/events")
+    filter = fl.filter(partial(filter_event, selected_events), args="/Summary/Events")
 
     ###### define counters #####
     count_all  = fl.spy_count()
