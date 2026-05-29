@@ -268,7 +268,7 @@ def compute_seeds_from_spectrum(sens_values, bins, ped_vals):
     sens_values : SensorParams
         Object containing spectra, peak range, bin limits, half-peak width, and p1pe seed.
     bins : np.array
-        Bin edges for the spectrum.
+        Bin centers for the spectrum.
     ped_vals : np.array
         Pedestal fit parameters.
 

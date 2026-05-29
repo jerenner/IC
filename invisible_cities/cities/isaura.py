@@ -56,8 +56,10 @@ def isaura( files_in       : OneOrManyFiles
          Default  'ZLIB4'
     event_range : int /'all_events'
          number of events from files_in to process
-    print_mode : int
+    print_mod : int
          how frequently to print events
+    detector_db : str
+         detector database identifier, used when copying MC information
     run_number : int
          has to be negative for MC runs
     paolina_params               :dict
@@ -65,7 +67,7 @@ def isaura( files_in       : OneOrManyFiles
             (maximum) size of voxels for track reconstruction
         strict_vox_size          : bool
             if False allows per event adaptive voxel size,
-            smaller of equal thatn vox_size
+            smaller than or equal to vox_size
         energy_threshold        : float
             if energy of end-point voxel is smaller
             the voxel will be dropped and energy redistributed to the neighbours
@@ -85,7 +87,7 @@ def isaura( files_in       : OneOrManyFiles
     - MC info (if run number <=0)
     - Tracking/Tracks - summary of per track information
     - Summary/events  - summary of per event information
-"""
+    """
 
     event_count_in  = fl.spy_count()
     event_count_out = fl.spy_count()

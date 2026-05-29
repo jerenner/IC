@@ -311,9 +311,6 @@ def apply_all_correction_single_maps(map_e0         : ASectorMap,
         Provides the desired normalization to be used.
     norm_options : dict
         Extra normalization options for some strategies.
-    krscale_output : Bool
-        If true, the returned factor will take into account the scaling
-        from pes to the Kr energy scale.
     Returns
     -------
         A function that returns time correction factor without passing a map.

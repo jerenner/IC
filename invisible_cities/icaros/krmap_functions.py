@@ -98,8 +98,8 @@ def get_median(var : np.ndarray) -> pd.DataFrame:
     -Kr energy resolution is ~4%, so the std for S2e median would be ~0.04/2.35.
     Parameters
     ----------
-    df : pd.DataFrame
-      Dataframe in which the median os the desired magnitude is being calculated.
+    var : np.ndarray
+      Values whose median is being calculated.
     Returns
     -------
     map : pd.DataFrame
@@ -134,10 +134,12 @@ def gaussian_fit(var        : np.ndarray,
 
     Parameters
     ----------
-    df : pd.DataFrame
-      Dataframe in which the gaussian fit of the S2e values is being performed.
+    var : np.ndarray
+      Values to be fitted.
     nbins  : int
       Number of bins to histogram the variable.
+    min_events : int
+      Minimum number of events required for the Gaussian fit.
     Returns
     -------
     map : pd.DataFrame
@@ -226,8 +228,6 @@ def fit_map(df            : pd.DataFrame,
       Number of map bins for drift time.
     fit_function : function
       Function to fit S2e to.
-    nbins_S2e: int
-      Number of map bins for S2e.
     S2e_range: tuple
       Range in S2e (pe) inside which the map is being computed.
     Returns
@@ -396,8 +396,6 @@ def compute_3D_map(df           : pd.DataFrame,
       set bin size for dt spatial coordinate.
     fit_function : function
       Function to fit S2e to.
-    nbins_S2e: int
-      Number of map bins for S2e.
     S2e_range: tuple
       Range in S2e (pe) inside which the map is being computed.
     Returns
@@ -734,9 +732,9 @@ def save_map(name          : str,
       Metadata dataframe.
     t_evol : pd.DataFrame
       Time evolution dataframe.
-    Returns
-    -------
-    Hdf file containing in each node each one of the inputs.
+    Notes
+    -----
+    Writes an HDF5 file containing the inputs in their corresponding nodes.
     """
     #special case, mode = 'w' because if you process the same data twice and mode = 'a'
     #the map would be duplicated.

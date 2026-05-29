@@ -8,6 +8,7 @@ Available cities
 Isidora  : Deconvolve PMT waveforms (RWF → CWF)
 Irene    : Find pulses, match PMT+SiPM signals (RWF → PMAPs)
 Diomira  : Monte Carlo waveform simulation
+Detsim   : Detector simulation from energy deposits to sensor waveforms
 Berenice : SiPM dark noise spectrum calibration
 Buffy    : MC sensor info sorting into data-like buffers
 Dorothea : Pointlike energy deposition reconstruction from S1/S2

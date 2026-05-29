@@ -15,5 +15,3 @@ Database Module
    :members:
    :undoc-members:
    :show-inheritance:
-
-

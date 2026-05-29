@@ -111,21 +111,25 @@ def esmeralda( files_in         : OneOrManyFiles
          Default  'ZLIB4'
     event_range : EventRangeType
          number of events from files_in to process
-    print_mode : int
+    print_mod : int
          how frequently to print events
+    detector_db : str
+         detector database identifier
     run_number : int
          has to be negative for MC runs
     threshold : float
         minimum pes for a hit (energy)
     same_peak : bool
         whether to reassign NN hits' energy only to the hits from the same peak
+    fiducial_r : float
+        maximum radial distance for accepted hits
 
     paolina_params : dict
         Dictionary containing track reconstruction parameters:
 
         * vox_size - [float, float, float], (maximum) size of voxels for track reconstruction
         * strict_vox_size - bool, if False allows per event adaptive voxel size,
-          smaller of equal than vox_size from sophronia
+          smaller than or equal to vox_size from Sophronia
         * energy_threshold - float, if energy of end-point voxel is smaller
           the voxel will be dropped and energy redistributed to the neighbours
         * min_voxels - int, after min_voxel number of voxels is reached no dropping will happen.
@@ -138,14 +142,14 @@ def esmeralda( files_in         : OneOrManyFiles
         * filename - str, Path to the file holding the correction maps
         * apply_temp - bool, Whether to apply temporal corrections
         * norm_method - NormMethod, Normalization method
-        * norm_value - dict (optional), Normalization parameters
+        * norm_options - dict (optional), Normalization parameters
 
     Input/Output
     ------------
     The city reads from ``/RECO/Events`` and ``/DST/Events``, and writes:
 
     - CHITS corrected hits table (highTh contains corrected hits that passed
-      h.Q >= charge_threshold_high constrain, with Ep field for energy after
+      h.Q >= threshold constraint, with Ep field for energy after
       drop_end_point_voxel algorithm and track_id for track membership)
     - MC info (if run number <=0)
     - Tracking/Tracks - summary of per track information

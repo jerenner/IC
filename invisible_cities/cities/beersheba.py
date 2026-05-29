@@ -412,7 +412,9 @@ def beersheba( files_in         : OneOrManyFiles
              , corrections      : dict
              ):
     """
-    The city corrects Sophronia hits energy and extracts topology information.
+    The city corrects reconstructed hits, applies threshold and isolation cuts,
+    deconvolves the SiPM charge distribution with configured PSFs, and writes
+    the deconvolved hits.
 
     Parameters
     ----------
@@ -424,8 +426,10 @@ def beersheba( files_in         : OneOrManyFiles
          Default  'ZLIB4'
     event_range : int /'all_events'
          Number of events from files_in to process
-    print_mode  : int
+    print_mod   : int
          How frequently to print events
+    detector_db : str
+         Detector database identifier
     run_number  : int
          Has to be negative for MC runs
 
@@ -493,15 +497,16 @@ def beersheba( files_in         : OneOrManyFiles
         norm_options : dict, optional
             Normalization parameters.
 
-    ----------
-    Input
-    ----------
-    Esmeralda output
-    ----------
-    Output
-    ----------
-    DECO    : Deconvolved hits table
-    MC info : (if run number <=0)
+    Input/Output
+    ------------
+    The city reads from ``/RECO/Events`` and ``/DST/Events``, and writes:
+
+    - ``/CHITS/lowTh`` : corrected and thresholded hits
+    - ``/DECO/Events`` : deconvolved hits table
+    - ``/DST/Events``  : kDST information
+    - ``/Run``         : run and event metadata
+    - ``/Filters/nohits`` : event-level no-hit filter
+    - MC information if ``run_number <= 0``
     """
     correct_hits   = fl.map(hits_corrector(**corrections), item="hits")
     threshold_hits = fl.map(hits_thresholder(threshold, same_peak), item="hits")

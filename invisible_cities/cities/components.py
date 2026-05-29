@@ -321,7 +321,9 @@ def event_range(conf):
     Returns
     -------
     tuple
-        Normalized event range as (start, stop) or (None,) for all events.
+        Normalized event range. Missing ``event_range`` defaults to ``(None, 1)``;
+        ``EventRange.all`` becomes ``(None,)``; ``EventRange.last`` as the stop
+        value becomes ``(start, None)``.
     """
     # event_range not specified
     if not hasattr(conf, 'event_range')           : return None, 1
@@ -475,13 +477,13 @@ def wf_binner(max_buffer: float) -> Callable:
     Returns a function to be used to convert the raw
     input MC sensor info into data binned according to
     a set bin width, effectively
-    padding with zeros inbetween the separate signals.
+    padding with zeros in between the separate signals.
 
     Parameters
     ----------
     max_buffer : float
                  Maximum event time to be considered in nanoseconds
-"""
+    """
     def bin_sensors(sensors  : pd.DataFrame,
                      bin_width: float       ,
                      t_min    : float       ,
@@ -1663,7 +1665,7 @@ def sipms_as_hits( detector_db : str
     - For each S2:
 
       - Compute the overall position of the signal according to `global_reco`
-        (typically barycenter in XYZ)
+        (typically a barycenter in XY)
       - For each (rebinned) slice of the S2:
 
         - Filters out SiPMs below `q_thr`
@@ -1699,9 +1701,6 @@ def sipms_as_hits( detector_db : str
 
     global_reco: Callable
       Reconstruction function to use for the event as a whole
-
-    slice_reco: Callable
-      Reconstruction function to use on each slice
 
     charge_type: SiPMCharge
       Interpretation of the SiPM charge.
@@ -1830,7 +1829,7 @@ def compute_and_write_pmaps(detector_db, run_number, pmt_samp_wid, sipm_samp_wid
     -------
     tuple
         (compute_pmaps pipeline, empty_indices counter, empty_pmaps counter).
-   """
+    """
     # Filter events without signal over threshold
     indices_pass    = fl.map(check_nonempty_indices,
                              args = ("s1_indices", "s2_indices"),
@@ -2023,8 +2022,7 @@ def make_event_summary(event_number  : int         ,
                        out_of_map    : bool
                        ) -> pd.DataFrame:
     """
-    For a given event number, timestamp, topology info dataframe, paolina hits and kdst information returns a
-    dataframe with the whole event summary.
+    Build a per-event summary from topology information and reconstructed hits.
 
     Parameters
     ----------
@@ -2032,11 +2030,11 @@ def make_event_summary(event_number  : int         ,
     topology_info : DataFrame
         Dataframe containing track information,
         output of track_blob_info_creator_extractor
-    paolina_hits  : pd.DataFrame
+    hits          : pd.DataFrame
         Hits passed through paolina functions,
         output of track_blob_info_creator_extractor
-    kdst          : DataFrame
-        Kdst information read from sophronia output
+    out_of_map    : bool
+        Whether any corrected hit was outside the correction map.
 
 
     Returns
@@ -2370,11 +2368,17 @@ def hits_corrector( filename     : str
 
     Parameters
     ----------
-    map_fname  : string (filepath)
+    filename  : string (filepath)
         filename of the map
     apply_temp : bool
         whether to apply temporal corrections
         must be set to False if no temporal correction dataframe exists in map file
+    norm_method : NormMethod
+        normalization method to use when applying the map
+    norm_options : dict, optional
+        normalization parameters
+    apply_z : bool, optional
+        whether to convert drift time to z using the median drift velocity
 
     Returns
     ----------

@@ -114,20 +114,21 @@ def generate_satellite_mask(im_deconv          : np.ndarray,
 def cut_and_redistribute_df(cut_condition : str,
                             variables     : List[str]=[]) -> Callable:
     '''
-    Apply a cut condition to a dataframe and redistribute the cut out values
-    of a given variable.
+    Create a function that applies a cut condition to a dataframe and
+    redistributes the cut-out values of the given variables.
 
     Parameters
     ----------
-    df      : dataframe to be cut
-
-    Initialization parameters:
-        cut_condition : String with the cut condition (example "Q > 10")
-        variables     : List with variables to be redistributed.
+    cut_condition : str
+        Query string with the cut condition (example "Q > 10").
+    variables : list of str
+        Columns whose values are redistributed after the cut.
 
     Returns
     ----------
-    pass_df : dataframe after applying the cut and redistribution.
+    Callable
+        Function that takes a dataframe and returns it after applying the
+        cut and redistribution.
     '''
     def cut_and_redistribute(df : pd.DataFrame) -> pd.DataFrame:
         pass_df = df.query(cut_condition).copy()
@@ -146,19 +147,20 @@ def cut_and_redistribute_df(cut_condition : str,
 def drop_isolated_sensors(distance  : List[float]=[10., 10.],
                           variables : List[str  ]=[        ]) -> Callable:
     """
-    Drops rogue/isolated hits (SiPMs) from a groupedby dataframe.
+    Create a function that drops rogue/isolated hits (SiPMs) from a dataframe.
 
     Parameters
     ----------
-    df      : GroupBy ('event' and 'npeak') dataframe
-
-    Initialization parameters:
-        distance  : Distance to check for other sensors. Usually equal to sensor pitch.
-        variables : List with variables to be redistributed.
+    distance : list of float
+        Distance to check for other sensors. Usually equal to sensor pitch.
+    variables : list of str
+        Columns whose values are redistributed after dropping isolated sensors.
 
     Returns
     -------
-    pass_df : hits after removing isolated hits
+    Callable
+        Function that takes a dataframe and returns the hits after removing
+        isolated sensors.
     """
     dist = np.sqrt(distance[0] ** 2 + distance[1] ** 2)
 
@@ -196,12 +198,17 @@ def drop_isolated_clusters(distance   :  List[float],
 
     Parameters
     ----------
-    df : Groupby ('event' and 'npeak') dataframe
+    distance : list of float
+        Distance to check for other sensors, equal to sensor pitch and z rebinning.
+    nhits : int
+        Number of hits below or equal to which a cluster is dropped.
+    variables : list of str
+        Columns whose values are redistributed (generally the energies).
 
-    Initialisation parameters:
-        distance  : Distance to check for other sensors, equal to sensor pitch and z rebinning.
-        nhits     : Number of hits to classify a cluster.
-        variables : List of variables to be redistributed (generally the energies)
+    Returns
+    -------
+    Callable
+        Function that takes a dataframe and drops isolated clusters.
     '''
 
    
@@ -241,23 +248,22 @@ def deconvolution_input(sample_width : Tuple2Dor3D,
                         inter_method : InterpolationMethod = InterpolationMethod.cubic
                        ) -> Callable:
     """
-    Prepares the given data for deconvolution. This involves interpolation of
-    the data.
+    Create a function that prepares hit data for deconvolution.
 
     Parameters
     ----------
-    data        : Sensor (hits) position points.
-    weight      : Sensor charge for each point.
-
-    Initialization parameters:
-        sample_width : Sampling size of the sensors.
-        det_grid     : xy-coordinates of the detector grid, to interpolate on them
-        inter_method : Interpolation method.
+    sample_width : tuple
+        Sampling size of the sensors.
+    det_grid : list of np.ndarray
+        Coordinates of the detector grid, used as interpolation targets.
+    inter_method : InterpolationMethod
+        Interpolation method.
 
     Returns
     -------
-    Hs          : Charge input for deconvolution.
-    inter_points : Coordinates of the deconvolution input.
+    Callable
+        Function taking sensor position points and weights, and returning
+        charge input plus interpolation coordinates for deconvolution.
     """
     if not isinstance(inter_method, InterpolationMethod):
         raise ValueError(f'inter_method {inter_method} is not a valid interpolation method.')
@@ -359,30 +365,26 @@ def deconvolve(n_iterations         : int,
                inter_method         : InterpolationMethod = InterpolationMethod.cubic
                ) -> Callable:
     """
-    Deconvolves a given set of data (sensor position and its response)
-    using Lucy-Richardson deconvolution.
+    Create a function that deconvolves sensor positions and responses using
+    Lucy-Richardson deconvolution.
 
     Parameters
     ----------
-    data                 : Sensor (hits) position points.
-    weight               : Sensor charge for each point.
-    psf                  : Point-spread function.
+    n_iterations         : Number of Lucy-Richardson iterations
+    iteration_tol        : Stopping threshold (difference between iterations).
+    sample_width         : Sampling size of the sensors.
+    det_grid             : Coordinates of the detector grid, used as interpolation targets.
     satellite_start_iter : Iteration no. when satellite killer starts being used.
     satellite_max_size   : Maximum size of satellite deposit, above which they are considered 'real'.
     e_cut                : Value for the energy cut.
     cut_type             : CutType object with the cut mode.
-
-    Initialization parameters:
-        n_iterations  : Number of Lucy-Richardson iterations
-        iteration_tol : Stopping threshold (difference between iterations).
-        sample_width  : Sampling size of the sensors.
-        det_grid      : xy-coordinates of the detector grid, to interpolate on them
-        inter_method  : Interpolation method.
+    inter_method         : Interpolation method.
 
     Returns
     -------
-    deconv_image : Deconvolved image.
-    inter_pos    : Coordinates of the deconvolved image.
+    Callable
+        Function taking sensor position points, weights and a PSF, and returning
+        the deconvolved image and its coordinates.
     """
     var_name     = np.array(['xr', 'yr', 'zr'])
     deconv_input = deconvolution_input(sample_width, det_grid, inter_method)

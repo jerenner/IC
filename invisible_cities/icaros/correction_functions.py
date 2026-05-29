@@ -109,7 +109,7 @@ def apply_3Dmap(krmap       : pd.DataFrame,
     ----------
     krmap : pd.DataFrame
       Input krypton map whose bins are going to be normalized.
-    method : NormMethod
+    norm_method : NormMethod
       Method for normalization, defined in class function NormMethod.
     dt : pd.core.series.Series
       Drift time column from dataframe
@@ -122,8 +122,9 @@ def apply_3Dmap(krmap       : pd.DataFrame,
     xy_params : dict
       Limits in x and y that define the region inside of which the normalization
       will be performed.
-    keV : bool
-      Boolean to decide whether the correction factor is applied in pes or keV
+    unit : float or None
+      Output energy unit. If None, the corrected energy remains in the
+      same charge scale as the input energy.
     Returns
     -------
     Ec : pd.core.series.Series
@@ -171,8 +172,8 @@ def apply_correctionmap_inplace_kdst(kdst        : pd.DataFrame,
       Must be a dictionary: {'x_high': , 'x_low': , 'y_high': , 'y_low': }
     col_name : str
       Name of the column where the corrected energy will be in the new dataframe.
-    keV : bool
-      Boolean to decide whether the correction factor is applied in keV or pe
+    unit : float or None
+      Output energy unit. If None, the corrected energy remains in pes.
 
     Returns
     -------
@@ -195,7 +196,7 @@ def apply_correctionmap_inplace_hits(hdst        : pd.DataFrame,
                                      unit        : Union[float, NoneType] = keV) -> pd.DataFrame:
 
     """
-    Applies a given krypton map (per hit) using apply_3Dmap_hits to get as an output the same input
+    Applies a given krypton map (per hit) using apply_3Dmap to get as an output the same input
     hdst with a column for the corrected energy.
 
     Parameters
@@ -212,8 +213,8 @@ def apply_correctionmap_inplace_hits(hdst        : pd.DataFrame,
       Must be a dictionary: {'x_high': , 'x_low': , 'y_high': , 'y_low': }
     col_name : str
       Name of the column where the corrected energy will be in the new dataframe.
-    keV : bool
-      Boolean to decide whether the correction factor is applied in keV or pe
+    unit : float or None
+      Output energy unit. If None, the corrected energy remains in pes.
 
     Returns
     -------

@@ -20,7 +20,7 @@ def e_from_q(qs: np.ndarray, e: float) -> np.ndarray:
     qs: np.ndarray, shape (n,)
         The charge of each hit.
 
-    e_slice: float
+    e: float
         The energy to be shared, typically of a given slice.
 
     Returns
@@ -316,4 +316,3 @@ def cluster_tagger(df_hits      : pd.DataFrame
                                 , scale_z     = scale_z )
     
     return df_clustered.set_index(df_hits.index)
-    

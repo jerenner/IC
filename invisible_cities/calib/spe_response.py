@@ -181,18 +181,17 @@ def scaled_dark_pedestal(dark_spectrum,
                          pedestal_mean, pedestal_sigma,
                          min_integral):
     """
-    Produces the function that generates the spectrum
-    resulting from adding a number of gaussians that
-    are scaled according a poisson distribution. The
-    pedestal is modeled with a histogram got from
-    sampling a gaussian distribution.
+    Produce a spectrum model that combines a measured dark spectrum with
+    Poisson-scaled Gaussian photoelectron peaks.
+
+    The pedestal term is the supplied dark spectrum scaled by the
+    zero-photoelectron probability. Signal peaks use the supplied pedestal
+    mean and sigma as the Gaussian baseline parameters.
 
     Parameters
     ----------
-    bins: np.ndarray with shape (n,)
-        Histogram binning.
-    nsamples: int
-        Number of samples to be drawn to model the pedestal.
+    dark_spectrum: np.ndarray with shape (n,)
+        Measured dark spectrum used as the pedestal contribution.
     pedestal_mean: float
         Baseline.
     pedestal_sigma: float
@@ -245,21 +244,15 @@ def dark_convolution(bins, dark_spectrum,
     """
     Convolution of dark spectrum with gaussians.
     Produces the function that generates the spectrum
-    resulting from convolving a number of gaussians that
-    are scaled according a poisson distribution with
-    a pedestal that is modeled with a histogram got from
-    sampling a gaussian distribution.
+    resulting from convolving Gaussian photoelectron responses, scaled
+    according to a Poisson distribution, with the supplied dark spectrum.
 
     Parameters
     ----------
     bins: np.ndarray with shape (n,)
         Histogram binning.
-    nsamples: int
-        Number of samples to be drawn to model the pedestal.
-    pedestal_mean: float
-        Baseline.
-    pedestal_sigma: float
-        Average noise.
+    dark_spectrum: np.ndarray with shape (n,)
+        Measured dark spectrum used as the pedestal contribution.
     min_integral: float
         Minimum integral for a given gaussian to be considered.
 

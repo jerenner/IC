@@ -183,6 +183,8 @@ class NoiseSampler:
 
         Parameters
         ----------
+        detector: str
+            Detector database identifier.
         run_number: int
             Run number used to load information from the database.
         sample_size: int
@@ -249,8 +251,8 @@ class NoiseSampler:
         noise_cut : float, optional
             Fraction of the distribution to be left behind. Default is 0.99.
         pes_to_adc : float or array of floats, optional
-            Constant(s) for pes to adc conversion (default None).
-            If not present, the thresholds are given in pes.
+            Constant(s) for pes to adc conversion. Default is 1, so the
+            thresholds are given in pes.
 
         Returns
         -------

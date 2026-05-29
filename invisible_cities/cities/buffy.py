@@ -191,7 +191,7 @@ def first_and_last_times_(pmt_binwid: float, sipm_binwid: float):
     -------
     Callable
         Function that takes PMT and SiPM response DataFrames and returns time extremes.
- """
+    """
     def get_event_time_extremes(pmt_resp : pd.DataFrame,
                                  sipm_resp: pd.DataFrame):
         """Get min/max times from PMT and SiPM responses using configured bin widths."""
@@ -214,7 +214,7 @@ def binning_set_width(binning_fnc: Callable, bin_width: float):
     -------
     Callable
         Partially applied binning function.
-"""
+    """
     def bin_calculation_(sensors: pd.DataFrame,
                           t_min  : float       ,
                           t_max  : float       ):

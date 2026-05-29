@@ -51,6 +51,8 @@ def monitor_S1(df         : pd.DataFrame,
     ----------
     df : pd.DataFrame
       Input dataframe (either the kdst before or after applying selections)
+    df2 : pd.DataFrame
+      Input dataframe after applying selections
     run_number : int
       Number of the run being analyzed
     ebins : np.array
@@ -61,9 +63,6 @@ def monitor_S1(df         : pd.DataFrame,
       To set limits and range on S1 height
     s1wbins : np.array
       To set limits and range on S1 width
-    Returns
-    -------
-    Histograms of the variables
     """
     fig, axs = plt.subplots(2, 2, figsize=(10, 8))
     nevents = len(df['event'].unique())
@@ -168,6 +167,8 @@ def monitor_S2(df          : pd.DataFrame,
     ----------
     df : pd.DataFrame
       Input dataframe (either the kdst before or after applying selections).
+    df2 : pd.DataFrame
+      Input dataframe after applying selections.
     run_number : int
       Number of the run being analyzed.
     ebins : np.array
@@ -182,10 +183,6 @@ def monitor_S2(df          : pd.DataFrame,
       To set limits and range on Qmax.
     s2wbins : np.array
       To set limits and range on S2 width.
-    Returns
-    -------
-    Histograms of the variables
-
     """
     fig, axs = plt.subplots(3, 2, figsize=(15, 12))
     nevents  = len(df['event'].unique())
@@ -320,7 +317,7 @@ def monitor_dtime(df          : pd.DataFrame,
       Function of drift time that defines the lower limit of the diffusion band.
     dtrms2_upp : Callable
       Function of drift time that defines the upper limit of the diffusion band.
-    dtrms2_cen : Callabla
+    dtrms2_cen : Callable
       Function of drift time that define the center of the diffusion band.
     """
     fig, axs = plt.subplots(2, 2, figsize=(10, 8))
@@ -332,26 +329,26 @@ def monitor_dtime(df          : pd.DataFrame,
     axs[0,0].plot(df1.DT, dtrms2_low(df1.DT), ".r", ms=2);
     axs[0,0].plot(df1.DT, dtrms2_upp(df1.DT), ".r", ms=2);
     axs[0,0].plot(df1.DT, dtrms2_cen(df1.DT), '.g', ms = 2);
-    axs[0,0].set_xlabel("Drift time ($\mu$s)"); axs[0,0].set_ylabel("DT$_{rms}^2$ ($\mu$s)"); axs[0,0].set_xlim(0, 1300)
+    axs[0,0].set_xlabel(r"Drift time ($\mu$s)"); axs[0,0].set_ylabel(r"DT$_{rms}^2$ ($\mu$s)"); axs[0,0].set_xlim(0, 1300)
     axs[0, 0].set_title('Before selection')
 
     axs[0,1].hist2d(df2.DT, df2.Zrms**2, (dtbins, dtrms2bins));
     axs[0,1].plot(df2.DT, dtrms2_low(df2.DT), ".r", ms=2);
     axs[0,1].plot(df2.DT, dtrms2_upp(df2.DT), ".r", ms=2);
     axs[0,1].plot(df2.DT, dtrms2_cen(df2.DT), '.g', ms = 2);
-    axs[0,1].set_xlabel("Drift time ($\mu$s)"); axs[0,1].set_ylabel("DT$_{rms}^2$ ($\mu$s)"); axs[0,1].set_xlim(0, 1300)
+    axs[0,1].set_xlabel(r"Drift time ($\mu$s)"); axs[0,1].set_ylabel(r"DT$_{rms}^2$ ($\mu$s)"); axs[0,1].set_xlim(0, 1300)
     axs[0,1].set_title('After selection')
 
     axs[1,0].hist(df1_.DT, dtbins, histtype = 'step', color = 'mediumpurple',lw = 2, label = 'before selection');
     axs[1,0].hist(df2.DT, dtbins, histtype = 'step', color = 'black', lw = 2, label = 'after selection');
     axs[1,0].legend();
-    axs[1,0].set_xlabel("Drift time ($\mu$s)");
+    axs[1,0].set_xlabel(r"Drift time ($\mu$s)");
     axs[1,0].grid(True)
 
     axs[1,1].hist(df1_.Zrms**2, 100, (0, 40), histtype = 'step',color = 'mediumpurple',lw = 2, label = 'before selection');
     axs[1,1].hist(df2.Zrms**2, 100, (0, 40), histtype = 'step', color = 'black',lw = 2, label = 'after selection');
     axs[1,1].legend();
-    axs[1,1].set_xlabel("DT$_{rms}^2$ ($\mu$s)");
+    axs[1,1].set_xlabel(r"DT$_{rms}^2$ ($\mu$s)");
     axs[1,1].grid(True)
 
     fig.tight_layout();
@@ -390,7 +387,7 @@ def monitor_kr_distribution(df        : pd.DataFrame,
     axs[0].grid(True)
 
     axs[1].hist2d(DT, R2, dtr2_bins);
-    axs[1].set_xlabel("DT ($\mu$s)");
+    axs[1].set_xlabel(r"DT ($\mu$s)");
     axs[1].set_ylabel("R$^2$ (mm$^2$)");
 
 
@@ -561,13 +558,10 @@ def plot_XY_distributions(df         : pd.DataFrame,
       Initial dataframe, Sophronia output.
     df2 : pd.DataFrame.
       Dataframe after performing selections.
-    xy_range : np.array.
-      Ideally a linspace withing the x,y limits (-500, 500) and specifying the number of bins
+    xy_range_plot : np.array.
+      Ideally a linspace within the x,y limits (-500, 500) and specifying the number of bins
     run_number : int.
       Run number.
-    Returns
-    -------
-    Histograms for X and Y of both dataframes.
     """
     fig, axs = plt.subplots(1, 2, figsize=(21, 7))
 
@@ -621,9 +615,8 @@ def plot_time_evolution_with_errors_and_dates(df_time_evolution : pd.DataFrame,
     Reads 'ts' data from a specified column within the /time_evolution DataFrame.
 
     Args:
-        h5_file_path (str): Path to the HDF5 file.
-        ts_col_name (str): The column name within the /time_evolution DataFrame
-                           that contains the timestamp data in seconds since epoch.
+        df_time_evolution (pd.DataFrame): Time-evolution table with 'ts', 'lt',
+            'ltu', 'e0' and 'e0u' columns.
         output_dir (str, optional): Directory to save plots. If None, plots are displayed.
     """
     print(f"\n--- Processing /time_evolution data ---")
