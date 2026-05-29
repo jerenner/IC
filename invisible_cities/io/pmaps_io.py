@@ -17,6 +17,23 @@ from .. core.tbl_functions import filters as tbl_filters
 
 def store_peak(pmt_table, pmti_table, si_table,
                peak, peak_number, event_number):
+    """Store PMT and SiPM data for a single peak to HDF5 tables.
+
+    Parameters
+    ----------
+    pmt_table : tb.Table
+        Table for summed PMT energies per bin.
+    pmti_table : tb.Table
+        Table for individual PMT waveforms.
+    si_table : tb.Table or None
+        Table for individual SiPM waveforms, or None for S1.
+    peak : S1 or S2
+        Peak object containing waveform data.
+    peak_number : int
+        Peak index within the event.
+    event_number : int
+        Event identifier.
+    """
     pmt_row  =  pmt_table.row
     pmti_row = pmti_table.row
 
@@ -49,6 +66,17 @@ def store_peak(pmt_table, pmti_table, si_table,
 
 
 def store_pmap(tables, pmap, event_number):
+    """Store all S1 and S2 peaks from a PMap to HDF5 tables.
+
+    Parameters
+    ----------
+    tables : tuple
+        ``(s1, s2, si, s1i, s2i)`` table objects from ``_make_tables``.
+    pmap : PMap
+        PMap object containing S1 and S2 peaks.
+    event_number : int
+        Event identifier.
+    """
     s1_table, s2_table, si_table, s1i_table, s2i_table = tables
     for peak_number, s1 in enumerate(pmap.s1s):
         store_peak(s1_table, s1i_table,     None, s1, peak_number, event_number)
@@ -57,6 +85,22 @@ def store_pmap(tables, pmap, event_number):
 
 
 def pmap_writer(file, *, compression=None):
+    """Create an HDF5 writer for PMap data.
+
+    Creates tables in the ``PMAPS`` group for S1, S2, and SiPM data.
+
+    Parameters
+    ----------
+    file : tb.File
+        Open HDF5 file.
+    compression : str, optional
+        Compression mode, passed to ``tbl.filters``.
+
+    Returns
+    -------
+    Callable
+        Function that writes a PMap for a single event.
+    """
     tables = _make_tables(file, compression)
     return partial(store_pmap, tables)
 
@@ -81,6 +125,18 @@ def _make_tables(hdf5_file, compression):
 
 
 def check_file_integrity(file):
+    """Verify that event numbers in Run and PMAPS tables are consistent.
+
+    Parameters
+    ----------
+    file : tb.File
+        Open HDF5 file.
+
+    Raises
+    ------
+    InvalidInputFileStructure
+        If event numbers in Run and PMAPS do not match.
+    """
     events_run      = file.root.Run  .events.read(field="evt_number")
     events_pmaps_s1 = file.root.PMAPS.S1    .read(field="event")
     events_pmaps_s2 = file.root.PMAPS.S2    .read(field="event")
@@ -309,29 +365,51 @@ def load_pmaps_lazy(filename, skip=0, n=None):
 
 
 def build_pmt_responses(pmtdf, ipmtdf):
+    """Build PMT responses from summed and individual PMT DataFrames.
+
+    Parameters
+    ----------
+    pmtdf : pd.DataFrame
+        DataFrame with summed PMT energies per time bin.
+    ipmtdf : pd.DataFrame
+        DataFrame with individual PMT waveforms.
+
+    Returns
+    -------
+    tuple
+        ``(times, widths, PMTResponses)`` for the peak.
+    """
     times = pmtdf.time.values
     try:
         widths = pmtdf.bwidth.values
     except AttributeError:
-        ## Old file without bin widths saved
-        ## Calculate 'fake' widths from times
         time_diff = np.diff(times)
         if len(time_diff) == 0:
             widths = np.full(1, 1000)
         elif np.all(time_diff == time_diff[0]):
-            ## S1-like
             widths = np.full(times.shape, time_diff[0])
         else:
-            ## S2-like, round to closest mus
             binw = time_diff.max().round(-3)
             widths = np.full(times.shape, binw)
     pmt_ids = pd.unique(ipmtdf.npmt.values)
     enes    =           ipmtdf.ene .values.reshape(pmt_ids.size,
-                                                     times.size)
+                                                      times.size)
     return times, widths, PMTResponses(pmt_ids, enes)
 
 
 def build_sipm_responses(sidf):
+    """Build SiPM responses from individual SiPM DataFrame.
+
+    Parameters
+    ----------
+    sidf : pd.DataFrame
+        DataFrame with individual SiPM charges.
+
+    Returns
+    -------
+    SiPMResponses
+        Container with SiPM IDs and charge matrix.
+    """
     if len(sidf) == 0: return SiPMResponses.build_empty_instance()
 
     sipm_ids = pd.unique(sidf.nsipm.values)
@@ -342,27 +420,57 @@ def build_sipm_responses(sidf):
 
 
 def s1s_from_df(s1df, s1pmtdf):
+    """Build S1 peaks from summed and individual PMT DataFrames.
+
+    Parameters
+    ----------
+    s1df : pd.DataFrame
+        DataFrame with summed S1 PMT data.
+    s1pmtdf : pd.DataFrame
+        DataFrame with individual S1 PMT waveforms.
+
+    Returns
+    -------
+    List[S1]
+        List of S1 peak objects.
+    """
     s1s = []
     peak_numbers = set(s1df.peak)
     for peak_number in peak_numbers:
         (times ,
          widths,
          pmt_r ) = build_pmt_responses(s1df   [s1df   .peak == peak_number],
-                                       s1pmtdf[s1pmtdf.peak == peak_number])
+                                        s1pmtdf[s1pmtdf.peak == peak_number])
         s1s.append(S1(times, widths,
-                      pmt_r, SiPMResponses.build_empty_instance()))
+                       pmt_r, SiPMResponses.build_empty_instance()))
 
     return s1s
 
 
 def s2s_from_df(s2df, s2pmtdf, sidf):
+    """Build S2 peaks from summed PMT, individual PMT, and SiPM DataFrames.
+
+    Parameters
+    ----------
+    s2df : pd.DataFrame
+        DataFrame with summed S2 PMT data.
+    s2pmtdf : pd.DataFrame
+        DataFrame with individual S2 PMT waveforms.
+    sidf : pd.DataFrame
+        DataFrame with individual SiPM charges.
+
+    Returns
+    -------
+    List[S2]
+        List of S2 peak objects.
+    """
     s2s = []
     peak_numbers = set(s2df.peak)
     for peak_number in peak_numbers:
         (times,
          widths,
          pmt_r ) = build_pmt_responses (s2df   [s2df   .peak == peak_number],
-                                        s2pmtdf[s2pmtdf.peak == peak_number])
+                                         s2pmtdf[s2pmtdf.peak == peak_number])
         sipm_r   = build_sipm_responses(sidf   [sidf   .peak == peak_number])
         s2s.append(S2(times, widths, pmt_r, sipm_r))
 

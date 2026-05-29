@@ -11,6 +11,7 @@ Some slices will have only electronic noise while others will contain
 one or more dark counts. The resulting spectra give a representation
 of the SiPM charge in the absence of external light above detector
 ambient conditions.
+
 The spectrum is produced in three flavours:
     - Using the mode   to subtract the baseline without calibrating.
     - Using the mode   to subtract the baseline and     calibrating.
@@ -49,17 +50,42 @@ from .  components import waveform_binner
 
 
 @city
-def berenice( files_in    : OneOrManyFiles
-            , file_out    : str
-            , compression : str
-            , event_range : EventRangeType
-            , print_mod   : int
-            , detector_db : str
-            , run_number  : int
-            , min_bin     : float
-            , max_bin     : float
-            , bin_width   : float
-            ):
+def berenice(files_in    : OneOrManyFiles,
+             file_out    : str,
+             compression : str,
+             event_range : EventRangeType,
+             print_mod   : int,
+             detector_db : str,
+             run_number  : int,
+             min_bin     : float,
+             max_bin     : float,
+             bin_width   : float):
+    """Produce SiPM dark noise spectra in three calibration modes.
+
+    Subtracts baseline using mode or median, optionally calibrates to PE,
+    and histograms the resulting charge distributions per SiPM.
+
+    Parameters
+    ----------
+    files_in : OneOrManyFiles
+        Input waveform files.
+    file_out : str
+        Output file path.
+    compression : str
+        HDF5 compression filter.
+    event_range : EventRangeType
+        Events to process.
+    print_mod : int
+        Print frequency.
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    min_bin, max_bin : float
+        Histogram range boundaries.
+    bin_width : float
+        Histogram bin width.
+    """
     bin_edges   = np.arange(min_bin, max_bin, bin_width)
     bin_centres = shift_to_bin_centers(bin_edges)
     nsipm       = sensor_data(files_in[0], WfType.rwf).NSIPM
@@ -112,14 +138,44 @@ def berenice( files_in    : OneOrManyFiles
 
 
 def mode_calibrator(detector_db, run_number):
+    """Create a calibrator that subtracts mode baseline and converts to PE.
+
+    Parameters
+    ----------
+    detector_db : str
+        Detector database identifier or path.
+    run_number : int
+        Run number for calibration constants.
+
+    Returns
+    -------
+    Callable
+        Function that takes waveforms and returns mode-calibrated waveforms.
+    """
     adc_to_pes = load_db.DataSiPM(detector_db, run_number).adc_to_pes.values
     def calibrate_with_mode(wfs):
+        """Subtract mode baseline and calibrate to PE."""
         return csf.sipm_subtract_mode_and_calibrate(wfs, adc_to_pes)
     return calibrate_with_mode
 
 
 def median_calibrator(detector_db, run_number):
+    """Create a calibrator that subtracts median baseline and converts to PE.
+
+    Parameters
+    ----------
+    detector_db : str
+        Detector database identifier or path.
+    run_number : int
+        Run number for calibration constants.
+
+    Returns
+    -------
+    Callable
+        Function that takes waveforms and returns median-calibrated waveforms.
+    """
     adc_to_pes = load_db.DataSiPM(detector_db, run_number).adc_to_pes.values
     def calibrate_with_median(wfs):
+        """Subtract median baseline and calibrate to PE."""
         return csf.sipm_subtract_median_and_calibrate(wfs, adc_to_pes)
     return calibrate_with_median

@@ -97,7 +97,8 @@ class S12Selector:
                    nsipm  : minmax = None) -> bool:
         """Returns True if the peak energy, width and height
         is contained in the minmax defined by energy, width and
-        height."""
+        height.
+        """
         f1 = energy.contains(peak.energy_above_threshold(thr))
         f2 = width .contains(peak. width_above_threshold(thr))
         f3 = height.contains(peak.height)
@@ -174,6 +175,7 @@ def pmap_filter(selector : S12Selector,
                 pmap     : PMap) -> S12SelectorOutput:
     """Takes the event pmaps
     and filters the corresponding peaks in terms of the selector.
+
     1. select_s1 returns the s1 peak numbers whose energy, width and height
        are within the boundaries defined by the selector parameters.
     2. select_s2 returns the s2 peak numbers whose energy, width and height

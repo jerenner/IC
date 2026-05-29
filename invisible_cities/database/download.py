@@ -12,33 +12,48 @@ from invisible_cities.database.db_connection import connect_mysql
 
 
 def create_table_sqlite(cursorSqlite, cursorMySql, table):
+    """Create a SQLite table from a MySQL table definition.
+
+    Fetches the CREATE TABLE statement from MySQL, strips MySQL-specific
+    syntax, and executes it on SQLite.
+
+    Parameters
+    ----------
+    cursorSqlite : sqlite3.Cursor
+        SQLite cursor.
+    cursorMySql : pymysql.cursors.Cursor
+        MySQL cursor.
+    table : str
+        Name of the table to copy.
+    """
     cursorMySql.execute('show create table {}'.format(table))
     data = cursorMySql.fetchone()
     sql  = data[1]
 
-    # show create table will include comments for each row
-    # Example: `MinRun` int(11) NOT NULL COMMENT 'Minimum run number for which valid'
-    # that is not compatible with sqlite3, so we remove it.
     sql = re.sub(r" COMMENT\s+\'.*\'", "", sql)
-
-    # it will also include: ENGINE=MyISAM DEFAULT CHARSET=latin1
-    # this is not compatible either, so we remove it.
     sql = re.sub(r"\s*ENGINE.*", "", sql)
-
-    # some tables may have KEYs defined: KEY `ElecID` (`SensorID`)
-    # this syntax is different, so we remove it too.
-    # This happens for instance in table ChannelGain
     sql = re.sub(r",\s*\n\s*KEY.*[\n,]", "", sql)
 
     cursorSqlite.execute(sql)
 
 
 def copy_all_rows(connSqlite, cursorSqlite, cursorMySql, table):
-    # Get all data
+    """Copy all rows from a MySQL table to a SQLite table.
+
+    Parameters
+    ----------
+    connSqlite : sqlite3.Connection
+        SQLite connection.
+    cursorSqlite : sqlite3.Cursor
+        SQLite cursor.
+    cursorMySql : pymysql.cursors.Cursor
+        MySQL cursor.
+    table : str
+        Name of the table to copy.
+    """
     cursorMySql.execute('SELECT * from {0}'.format(table))
     data = cursorMySql.fetchall()
 
-    # Insert all rows
     fields = '?'
     try:
         nfields = len(data[0])
@@ -50,6 +65,15 @@ def copy_all_rows(connSqlite, cursorSqlite, cursorMySql, table):
 
 
 def loadDB(dbname : str, tables : list):
+    """Clone MySQL database tables to a local SQLite database.
+
+    Parameters
+    ----------
+    dbname : str
+        Name of the MySQL database.
+    tables : list of str
+        List of table names to copy.
+    """
     print("Cloning database {}".format(dbname))
     dbfile = path.join(os.environ['ICDIR'], 'database/localdb.'+dbname+'.sqlite3')
     try:
@@ -62,11 +86,7 @@ def loadDB(dbname : str, tables : list):
 
     for table in tables:
         print("Downloading table {}".format(table))
-
-        # Create table
         create_table_sqlite(cursor_sqlite, cursor_mysql, table)
-
-        # Copy data
         copy_all_rows(conn_sqlite, cursor_sqlite, cursor_mysql, table)
 
 

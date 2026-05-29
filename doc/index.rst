@@ -11,9 +11,19 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   getting_started
+   config_files
+   data_formats
+   database_setup
+   testing_guide
+   api
+   cities
    contributing
-   notebooks
    core
+   notebooks
+   commits
+   merging
+   ic_authors_and_legal
 
 
 

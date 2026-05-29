@@ -14,6 +14,7 @@ The PSF can be obtained for different sections of the active
 volume independently.
 
 The tasks performed are:
+
     - Load hits processed for psf configuration
     - Split data in z-sections
     - Process each slice (charge normalization)
@@ -24,9 +25,11 @@ The tasks performed are:
 
 The overall PSF is table that describes a collection of discrete
 matrices organized according to these variables:
+
     - x, y, z: coordinates of the center of each xy-sector and slice
 
 Each triplet of values is a PSF on its own. A PSF is a table containing:
+
     - xr, yr, zr: relative coordinates of the center of the bin
     - factor    : fraction of charge at this bin
     - nevt      : number of entries at this bin
@@ -56,19 +59,46 @@ from typing import Tuple
 
 
 @city
-def eutropia( files_in    : OneOrManyFiles
-            , file_out    : str
-            , compression : str
-            , event_range : EventRangeType
-            , detector_db : str
-            , run_number  : int
-            , xrange      : Sequence[float]
-            , yrange      : Sequence[float]
-            , zbins       : Sequence[float]
-            , xsectors    : Sequence[float]
-            , ysectors    : Sequence[float]
-            , bin_size_xy : float
-            ):
+def eutropia(files_in    : OneOrManyFiles,
+             file_out    : str,
+             compression : str,
+             event_range : EventRangeType,
+             detector_db : str,
+             run_number  : int,
+             xrange      : Sequence[float],
+             yrange      : Sequence[float],
+             zbins       : Sequence[float],
+             xsectors    : Sequence[float],
+             ysectors    : Sequence[float],
+             bin_size_xy : float):
+    """Compute the Point Spread Function (PSF) from reconstructed hits.
+
+    Averages the spatial charge distribution relative to the barycenter
+    for pointlike events, organized by XY sectors and Z slices.
+
+    Parameters
+    ----------
+    files_in : OneOrManyFiles
+        Input hits files.
+    file_out : str
+        Output file path.
+    compression : str
+        HDF5 compression filter.
+    event_range : EventRangeType
+        Events to process.
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    xrange, yrange : Sequence[float]
+        XY coordinate ranges for the PSF grid.
+    zbins : Sequence[float]
+        Z-axis bin edges for slicing.
+    xsectors, ysectors : Sequence[float]
+        XY sector boundaries for PSF averaging.
+    bin_size_xy : float
+        PSF grid bin size in mm.
+    """
     sipms   = DataSiPM(detector_db, run_number)
     ranges  = xrange  , yrange
     sectors = xsectors, ysectors
@@ -137,7 +167,20 @@ def eutropia( files_in    : OneOrManyFiles
 
 
 def z_splitter(zbins : Sequence[float]):
+    """Create a function that splits a hits DataFrame into z-slices by bin edges.
+
+    Parameters
+    ----------
+    zbins : Sequence[float]
+        Z-axis bin edges defining slices.
+
+    Returns
+    -------
+    Callable
+        Generator function yielding (z_centre, sliced_df) for each non-empty z slice.
+    """
     def split_in_z(dst):
+        """Yield (z_centre, hits) for each non-empty z bin."""
         for zmin, zmax in zip(zbins, zbins[1:]):
             zpsf = (zmin + zmax) / 2
 
@@ -149,13 +192,43 @@ def z_splitter(zbins : Sequence[float]):
     return split_in_z
 
 def hdst_processor(ranges : Sequence[float], sipms : pd.DataFrame):
+    """Create a processor that applies PSF-specific transformations to a slice.
+
+    Parameters
+    ----------
+    ranges : Sequence[float]
+        XY coordinate ranges for normalization.
+    sipms : pd.DataFrame
+        SiPM database with positions and calibration data.
+
+    Returns
+    -------
+    Callable
+        Function that processes a slice DataFrame for PSF computation.
+    """
     def process_hdst(dst):
+        """Apply PSF processing (charge normalization) to a z slice."""
         return hdst_psf_processing(dst, ranges, sipms)
     return process_hdst
 
 
 def xy_splitter(sectors : Sequence[float], bin_edges : Sequence[float]):
+    """Create a function that splits a slice into xy-sector sub-slices.
+
+    Parameters
+    ----------
+    sectors : Sequence[float]
+        X and Y sector bin edges.
+    bin_edges : Sequence[float]
+        PSF bin edges for relative coordinate computation.
+
+    Returns
+    -------
+    Callable
+        Generator function yielding (x_centre, y_centre, sliced_df) per sector.
+    """
     def split_in_xy(dst):
+        """Yield (x_centre, y_centre, hits) for each non-empty xy sector."""
         xsectors, ysectors = sectors
         for xmin, xmax in zip(xsectors, xsectors[1:]):
             xpsf = np.round((xmin + xmax) / 2, 2)
@@ -173,7 +246,20 @@ def xy_splitter(sectors : Sequence[float], bin_edges : Sequence[float]):
 
 
 def psf_builder(bin_edges : Sequence[float]):
+    """Create a function that computes a PSF from a sector's hits.
+
+    Parameters
+    ----------
+    bin_edges : Sequence[float]
+        XY bin edges for the PSF grid.
+
+    Returns
+    -------
+    Callable
+        Function that returns (factors, entries, bin_centers) for a sector.
+    """
     def build(df):
+        """Compute PSF factors, entries, and bin centers from sector hits."""
         psf, entries, bin_centers = create_psf( (df.RelX, df.RelY)
                                               ,  df.NormQ
                                               , bin_edges
@@ -182,13 +268,31 @@ def psf_builder(bin_edges : Sequence[float]):
     return build
 
 
-def df_builder( x       : Sequence[float]
+def df_builder(x       : Sequence[float]
               , y       : Sequence[float]
               , z       : Sequence[float]
               , factors : Sequence[float]
               , entries : Sequence[float]
               , centers : Tuple[Sequence[float], Sequence[float]]
               ):
+    """Assemble PSF data from sector results into a flat DataFrame.
+
+    Parameters
+    ----------
+    x, y, z : Sequence[float]
+        Sector centre coordinates.
+    factors : Sequence[float]
+        PSF charge fractions per bin.
+    entries : Sequence[float]
+        Number of entries contributing to each bin.
+    centers : Tuple[Sequence[float], Sequence[float]]
+        Relative bin center coordinates (xr, yr).
+
+    Returns
+    -------
+    pd.DataFrame
+        PSF DataFrame with xr, yr, zr, x, y, z, factor, nevt columns.
+    """
     xr, yr = centers
     xr, yr = np.meshgrid(xr, yr, indexing="ij")
     xr, yr = np.ravel(xr), np.ravel(yr)
@@ -201,6 +305,20 @@ def df_builder( x       : Sequence[float]
 
 
 def combine_psfs(acc : pd.DataFrame, new : pd.DataFrame):
+    """Merge two PSF DataFrames by averaging charge factors weighted by entries.
+
+    Parameters
+    ----------
+    acc : pd.DataFrame or None
+        Accumulated PSF DataFrame. None on first call.
+    new : pd.DataFrame
+        New PSF DataFrame to merge.
+
+    Returns
+    -------
+    pd.DataFrame
+        Combined PSF with averaged factors and summed entries.
+    """
     if acc is None:
         return new
 

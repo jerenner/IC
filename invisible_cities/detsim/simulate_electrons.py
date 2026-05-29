@@ -74,16 +74,21 @@ def diffuse_electrons(xs                     : np.ndarray,
     Starting from hits with positions xs, ys, zs, and number of electrons,
     apply diffusion and return diffused positions xs, ys, zs for each electron.
 
-    Paramters:
-        :transverse_diffusion: float
-        :longitudinal_diffusion: float
-        :xs, ys, zs: np.ndarray (1D of size: #hits)
-            Postions of initial hits
-        :electrons:
-            Number of ionization electrons per hit before drifting
-    Returns:
-        :dxs, dys, dzs: np.ndarray (1D of size: #hits x #electrons-per-hit)
-            Diffused positions at the EL
+    Parameters
+    ----------
+    xs, ys, zs : np.ndarray (1D of size: #hits)
+        Positions of initial hits
+    n_electrons : np.ndarray
+        Number of ionization electrons per hit before drifting
+    transverse_diffusion : float
+        Transverse diffusion coefficient
+    longitudinal_diffusion : float
+        Longitudinal diffusion coefficient
+
+    Returns
+    -------
+    dxs, dys, dzs : np.ndarray (1D of size: #hits x #electrons-per-hit)
+        Diffused positions at the EL
     """
     xs = np.repeat(xs, n_electrons)
     ys = np.repeat(ys, n_electrons)

@@ -48,19 +48,50 @@ from .  components import             check_max_time
 
 
 @city
-def buffy( files_in          : OneOrManyFiles
-         , file_out          : str
-         , compression       : str
-         , event_range       : EventRangeType
-         , print_mod         : int
-         , detector_db       : str
-         , run_number        : int
-         , max_time          : float
-         , buffer_length     : float
-         , pre_trigger       : float
-         , trigger_threshold : float
-         , rate              : float
-         ):
+def buffy(files_in          : OneOrManyFiles,
+          file_out          : str,
+          compression       : str,
+          event_range       : EventRangeType,
+          print_mod         : int,
+          detector_db       : str,
+          run_number        : int,
+          max_time          : float,
+          buffer_length     : float,
+          pre_trigger       : float,
+          trigger_threshold : float,
+          rate              : float):
+    """Sort MC sensor responses into data-like buffers without noise.
+
+    Reads MC sensor information, bins into waveforms, organizes into
+    buffers based on trigger-like signals, and writes buffered output.
+
+    Parameters
+    ----------
+    files_in : OneOrManyFiles
+        Input MC sensor files.
+    file_out : str
+        Output file path.
+    compression : str
+        HDF5 compression filter.
+    event_range : EventRangeType
+        Events to process.
+    print_mod : int
+        Print frequency.
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    max_time : float
+        Maximum event time window.
+    buffer_length : float
+        Buffer duration in microseconds.
+    pre_trigger : float
+        Pre-trigger time in microseconds.
+    trigger_threshold : float
+        Trigger signal threshold.
+    rate : float
+        Event rate for timestamp generation.
+    """
 
     max_time          = check_max_time(max_time, buffer_length)
     npmt, nsipm       = get_n_sensors(detector_db, run_number)
@@ -147,22 +178,69 @@ def buffy( files_in          : OneOrManyFiles
 
 
 def first_and_last_times_(pmt_binwid: float, sipm_binwid: float):
+    """Wrap first_and_last_times with configured bin widths for dataflow.
+
+    Parameters
+    ----------
+    pmt_binwid : float
+        PMT waveform bin width.
+    sipm_binwid : float
+        SiPM waveform bin width.
+
+    Returns
+    -------
+    Callable
+        Function that takes PMT and SiPM response DataFrames and returns time extremes.
+ """
     def get_event_time_extremes(pmt_resp : pd.DataFrame,
-                                sipm_resp: pd.DataFrame):
+                                 sipm_resp: pd.DataFrame):
+        """Get min/max times from PMT and SiPM responses using configured bin widths."""
         return first_and_last_times(pmt_resp  , sipm_resp  ,
                                     pmt_binwid, sipm_binwid)
     return get_event_time_extremes
 
 
 def binning_set_width(binning_fnc: Callable, bin_width: float):
+    """Bind a binning function to a specific bin width for dataflow use.
+
+    Parameters
+    ----------
+    binning_fnc : Callable
+        Binning function that accepts (sensors, bin_width, t_min, t_max).
+    bin_width : float
+        Bin width to bind.
+
+    Returns
+    -------
+    Callable
+        Partially applied binning function.
+"""
     def bin_calculation_(sensors: pd.DataFrame,
-                         t_min  : float       ,
-                         t_max  : float       ):
+                          t_min  : float       ,
+                          t_max  : float       ):
+        """Bin sensor responses with the configured bin width."""
         return binning_fnc(sensors, bin_width, t_min, t_max)
     return bin_calculation_
 
 
 def pmt_and_sipm_bin_width_safe_(files_in: List[str]):
+    """Safely extract PMT and SiPM bin widths from input files, trying each until success.
+
+    Parameters
+    ----------
+    files_in : List[str]
+        List of input file paths to try.
+
+    Returns
+    -------
+    tuple of float
+        (pmt_bin_width, sipm_bin_width) from the first valid file.
+
+    Raises
+    ------
+    tb.NoSuchNodeError
+        If no file yields valid bin widths.
+    """
     for fn in files_in:
         try:
             pmt_wid, sipm_wid = pmt_and_sipm_bin_width(fn)

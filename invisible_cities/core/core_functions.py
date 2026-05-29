@@ -26,6 +26,18 @@ def timefunc(f):
 
 
 def flat(nested_list):
+    """Recursively flatten a nested list into a 1-D NumPy array.
+
+    Parameters
+    ----------
+    nested_list : list
+        Arbitrarily nested list of iterables.
+
+    Returns
+    -------
+    np.ndarray
+        1-D array containing all elements from the nested structure.
+    """
     while hasattr(nested_list[0], "__iter__"):
         nested_list = [item for inner_list in nested_list for item in inner_list]
     return np.array(nested_list)
@@ -42,6 +54,23 @@ def trange(*args):
 
 
 def relative_difference(x, y, *, norm_mode=NormMode.first):
+    """Compute the relative difference between two values.
+
+    Parameters
+    ----------
+    x : float
+        First value.
+    y : float
+        Second value.
+    norm_mode : NormMode
+        Normalization mode: ``first`` divides by x, ``second`` divides by y,
+        ``sumof`` divides by their sum, and ``mean`` divides by their mean.
+
+    Returns
+    -------
+    float
+        Relative difference ``(x - y)`` normalized according to ``norm_mode``.
+    """
     if   norm_mode is NormMode.first : return     (x - y) /  x
     elif norm_mode is NormMode.second: return     (x - y) /      y
     elif norm_mode is NormMode.sumof : return     (x - y) / (x + y)
@@ -107,7 +136,7 @@ def weighted_mean_and_var(data       : Sequence,
 
     Returns
     -------
-    ave: float
+    ave : float
         Weighted average of data.
     var: float
         Weighted average of data.
@@ -290,10 +319,34 @@ def define_window(wf, window_size):
 
 
 def mean_handle_empty(array):
+    """Compute the arithmetic mean, returning NaN for empty arrays.
+
+    Parameters
+    ----------
+    array : array-like
+        Input data.
+
+    Returns
+    -------
+    float
+        Mean of the array, or NaN if the array is empty.
+    """
     return np.mean(array) if len(array) else np.nan
 
 
 def  std_handle_empty(array):
+    """Compute the standard deviation, returning NaN for empty arrays.
+
+    Parameters
+    ----------
+    array : array-like
+        Input data.
+
+    Returns
+    -------
+    float
+        Standard deviation of the array, or NaN if the array is empty.
+    """
     return np.std (array) if len(array) else np.nan
 
 
@@ -307,12 +360,14 @@ def shift_to_bin_centers(x):
 def binedges_from_bincenters(bincenters: np.ndarray,
                              range     : Tuple = None)->np.ndarray:
     """
-    computes bin-edges from bin-centers.
+    Computes bin-edges from bin-centers.
+
     Parameters:
         :bincenters: np.ndarray
             bin centers
         :range: np.ndarray
             tuple with the lowest and higher bin edge, respectively
+
     Returns:
         :binedges: np.ndarray
             bin edges
@@ -350,6 +405,13 @@ def find_nearest(array : np.ndarray,
 
 @contextmanager
 def fix_random_seed(seed):
+    """Temporarily set the NumPy random seed, restoring the original state on exit.
+
+    Parameters
+    ----------
+    seed : int
+        Random seed value to set for the duration of the context.
+    """
     state = np.random.get_state()
     np.random.seed(seed)
     try:

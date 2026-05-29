@@ -15,27 +15,28 @@ def read_lighttable(fname      : str,
                     group_name : str,
                     el_gap     : Optional[float]=None,
                     active_r   : Optional[float]=None):
-    """ A helper function to extract dataframes and configuration infro from files.
-    Parameters:
-        :fname:      str
-              lighttable filename (full path)
-        :group_name: str
-            group name under which table is saved
-        :el_gap:   float (optional)
-            optional set of el gap width. Warning is issued if it differs
-            from the config one
-        :active_r: float (optional)
-            optional set of active radius. Warning is issued in case it differs
-            from the config one
-    Returns: tuple
-        :lt_df:     pd.DataFrame
-            light table values in pd.DataFrame format
-        :config_df: pd.DataFrame
-            light table config in pd.DataFrame format
-        :el_gap:   float
-            input el_gap or el_gap read from file
-        :active_r: float
-            input active_r or active_r read from file
+    """A helper function to extract dataframes and configuration info from files.
+
+    Parameters
+    ----------
+    fname : str
+        lighttable filename (full path)
+    group_name : str
+        group name under which table is saved
+    el_gap : float (optional)
+        optional set of el gap width. Warning is issued if it differs
+        from the config one
+    active_r : float (optional)
+        optional set of active radius. Warning is issued in case it differs
+        from the config one
+
+    Returns
+    -------
+    tuple
+        - lt_df : pd.DataFrame - light table values in pd.DataFrame format
+        - config_df : pd.DataFrame - light table config in pd.DataFrame format
+        - el_gap : float - input el_gap or el_gap read from file
+        - active_r : float - input active_r or active_r read from file
     """
 
     lt_df      = load_dst(fname, group_name, "LightTable")
@@ -61,17 +62,21 @@ def create_lighttable_function(filename : str,
                                active_r : Optional[float]=None)->Callable:
     """From a lighttable file, it returns a function of (x, y) for S2 signal
     or (x, y, z) for S1 signal type. Signal type is read from the table.
-    Parameters:
-        :filename: str
-            name of the lighttable file
-    Returns:
-        :get_lt_values: Callable
-            this is a function which access the desired value inside
-            the lighttable. The lighttable values would be the nearest
-            points to the input positions. If the input positions are
-            outside the lighttable boundaries, zero is returned.
-            Input values must be vectors of same lenght, I. The output
-            shape will be (I, number_of_pmts).
+
+    Parameters
+    ----------
+    filename : str
+        name of the lighttable file
+
+    Returns
+    -------
+    Callable
+        get_lt_values: this is a function which access the desired value inside
+        the lighttable. The lighttable values would be the nearest
+        points to the input positions. If the input positions are
+        outside the lighttable boundaries, zero is returned.
+        Input values must be vectors of same lenght, I. The output
+        shape will be (I, number_of_pmts).
     """
     lt, config, el_gap, act_r = read_lighttable(filename, 'LT', active_r=active_r)
     sensor = config.loc["sensor"].value

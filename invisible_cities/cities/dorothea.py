@@ -11,6 +11,7 @@ pointlike energy depositions. They consist of three dimensional
 coordinates with some associated global S1 and S2 properties. The city
 contains a peak/event filter, which can be configured to find events
 with a certain number of S1/S2 signals that satisfy certain properties.
+
 The tasks performed are:
     - Classify peaks according to the filter.
     - Filter out events that do not satisfy the selector conditions.
@@ -65,29 +66,82 @@ from typing import Optional
 
 
 @city
-def dorothea( files_in         :  OneOrManyFiles
-            , file_out         :  str
-            , compression      :  str
-            , event_range      :  EventRangeType
-            , print_mod        :  int
-            , detector_db      :  str
-            , run_number       :  int
-            , drift_v          :  float
-            , s1_nmin          :    int, s1_nmax           :   int
-            , s1_emin          :  float, s1_emax           : float
-            , s1_wmin          :  float, s1_wmax           : float
-            , s1_hmin          :  float, s1_hmax           : float
-            , s1_ethr          :  float
-            , s2_nmin          :    int, s2_nmax           :   int
-            , s2_emin          :  float, s2_emax           : float
-            , s2_wmin          :  float, s2_wmax           : float
-            , s2_hmin          :  float, s2_hmax           : float
-            , s2_ethr          :  float
-            , s2_nsipmmin      :    int, s2_nsipmmax       :   int
-            , global_reco_algo : XYReco, global_reco_params:  dict
-            , sipm_charge_type : SiPMCharge
-            , include_mc       : Optional[bool] = False
-):
+def dorothea(files_in         :  OneOrManyFiles,
+             file_out         :  str,
+             compression      :  str,
+             event_range      :  EventRangeType,
+             print_mod        :  int,
+             detector_db      :  str,
+             run_number       :  int,
+             drift_v          :  float,
+             s1_nmin          :    int, s1_nmax           :   int,
+             s1_emin          :  float, s1_emax           : float,
+             s1_wmin          :  float, s1_wmax           : float,
+             s1_hmin          :  float, s1_hmax           : float,
+             s1_ethr          :  float,
+             s2_nmin          :    int, s2_nmax           :   int,
+             s2_emin          :  float, s2_emax           : float,
+             s2_wmin          :  float, s2_wmax           : float,
+             s2_hmin          :  float, s2_hmax           : float,
+             s2_ethr          :  float,
+             s2_nsipmmin      :    int, s2_nsipmmax       :   int,
+             global_reco_algo : XYReco, global_reco_params:  dict,
+             sipm_charge_type : SiPMCharge,
+             include_mc       : Optional[bool] = False):
+    """Reconstruct pointlike energy depositions from S1-S2 peak pairs.
+
+    Classifies peaks, filters events, and computes 3D coordinates
+    (XY from SiPM barycenter, Z from drift time) for each S1-S2 pair.
+
+    Parameters
+    ----------
+    files_in : OneOrManyFiles
+        Input PMap files from Irene.
+    file_out : str
+        Output file path.
+    compression : str
+        HDF5 compression filter.
+    event_range : EventRangeType
+        Events to process.
+    print_mod : int
+        Print frequency.
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    drift_v : float
+        Electron drift velocity.
+    s1_nmin, s1_nmax : int
+        Min/max number of PMT channels for S1.
+    s1_emin, s1_emax : float
+        Min/max S1 energy.
+    s1_wmin, s1_wmax : float
+        Min/max S1 width.
+    s1_hmin, s1_hmax : float
+        Min/max S1 height.
+    s1_ethr : float
+        S1 energy threshold.
+    s2_nmin, s2_nmax : int
+        Min/max number of PMT channels for S2.
+    s2_emin, s2_emax : float
+        Min/max S2 energy.
+    s2_wmin, s2_wmax : float
+        Min/max S2 width.
+    s2_hmin, s2_hmax : float
+        Min/max S2 height.
+    s2_ethr : float
+        S2 energy threshold.
+    s2_nsipmmin, s2_nsipmmax : int
+        Min/max number of SiPMs for S2.
+    global_reco_algo : XYReco
+        XY reconstruction algorithm.
+    global_reco_params : dict
+        Parameters for the XY reconstruction.
+    sipm_charge_type : SiPMCharge
+        SiPM charge interpretation mode.
+    include_mc : bool
+        Whether to copy MC information.
+    """
     # global_reco_params are qth, qlm, lm_radius, new_lm_radius, msipm
     # qlm           =  0 * pes every Cluster must contain at least one SiPM with charge >= qlm
     # lm_radius     = -1 * mm  by default, use overall barycenter for KrCity

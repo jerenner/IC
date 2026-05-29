@@ -30,7 +30,9 @@ dtrmsbins  = np.linspace(0, 10, 101)
 dtrms2bins = np.linspace(0, 55, 101)
 ebins      = np.linspace(0, 15e3, 101)
 
-freq = lambda : plt.ylabel("frequency")
+def freq():
+    """Set y-axis label to 'frequency'. Convenience helper for histograms."""
+    plt.ylabel("frequency")
 
 
 def monitor_S1(df         : pd.DataFrame,
@@ -490,9 +492,10 @@ def plot_lifetime_fit(df         : pd.DataFrame,
                       ebins      : np.array):
     """
     Plots a 2D histogram of DT vs S2e.
+
     Computes a fit to the lifetime and calculates and plots its profile.
-    -df should be df after selections, to then apply select_lifetime_region
-     so the fit works properly.
+    df should be df after selections, to then apply select_lifetime_region
+    so the fit works properly.
     """
     df_in_region = select_lifetime_region(df, x0, y0, shape, shape_size)
 
@@ -584,6 +587,14 @@ def plot_XY_distributions(df         : pd.DataFrame,
 
 
 def plot_efficiencies(efficiencies : pd.DataFrame):
+    """Plot selection efficiencies as a scatter plot.
+
+    Parameters
+    ----------
+    efficiencies : pd.DataFrame
+        DataFrame with one row and columns named after each selection cut,
+        containing efficiency values.
+    """
     ncuts             = len(efficiencies.columns)
     efficiencies_plot = efficiencies.values.reshape(ncuts)
 
@@ -731,6 +742,47 @@ def make_control_plots(df               : pd.DataFrame,
                        shape_size       : float,
                        xy_range_plot    : np.array
                        ):
+    """Generate and save all control plots for a run.
+
+    Creates plots for S1, S2, drift time, lifetime, krypton distribution,
+    corrected energy, 2D histograms, lifetime fit, sigmoid, X/Y distributions,
+    and selection efficiencies.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Original KDST data.
+    df_corr : pd.DataFrame
+        Corrected KDST data.
+    efficiencies : pd.DataFrame
+        Selection efficiency values.
+    run_number : int
+        Run number for plot filenames.
+    plots_out : str
+        Output directory for PNG files.
+    ebins1, ns1bins, s1hbins, s1wbins : np.array
+        Bin edges for S1 monitors.
+    ebins2, ns2bins, s2hbins, s2qbins, qmaxbins, s2wbins : np.array
+        Bin edges for S2 monitors.
+    dtrms2_low, dtrms2_upp, dtrms2_cen : Callable
+        Functions for drift time RMS limits.
+    dtbins2 : np.array
+        Bin edges for drift time monitor.
+    bins : int
+        Number of bins for krypton distribution.
+    dtr2_bins : tuple
+        Bin range for drift time squared.
+    statistic : str
+        Statistical method for 2D histogram.
+    x0, y0 : float
+        Center coordinates for region selection.
+    shape : SelRegionMethod
+        Selection region shape.
+    shape_size : float
+        Selection region size.
+    xy_range_plot : np.array
+        X/Y range for distribution plots.
+    """
     os.makedirs(plots_out, exist_ok=True)
 
     monitor_S1(df, df_corr, run_number, ebins1, ns1bins, s1hbins, s1wbins)

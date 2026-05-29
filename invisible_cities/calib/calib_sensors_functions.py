@@ -11,6 +11,20 @@ from ..types.symbols import SiPMCalibMode
 
 
 def mask_sensors(wfs, active):
+    """Zero out waveforms for inactive sensors.
+
+    Parameters
+    ----------
+    wfs : np.ndarray
+        Waveform array of shape ``(n_sensors, n_samples)``.
+    active : np.ndarray
+        Boolean array of shape ``(n_sensors,)`` indicating active sensors.
+
+    Returns
+    -------
+    np.ndarray
+        Waveforms with inactive sensors zeroed.
+    """
     return wfs * active.astype(wfs.dtype).reshape(active.size, 1)
 
 
@@ -52,9 +66,17 @@ median = zero_masked(np.ma.median)
 mean   = zero_masked(np.ma.mean)
 
 
-def means  (wfs): return to_col_vector(mean  (wfs, axis=1))
-def medians(wfs): return to_col_vector(median(wfs, axis=1))
-def modes  (wfs): return to_col_vector(mode  (wfs, axis=1))
+def means  (wfs):
+    """Compute per-sensor mean baseline, masked for zero-suppressed data."""
+    return to_col_vector(mean  (wfs, axis=1))
+
+def medians(wfs):
+    """Compute per-sensor median baseline, masked for zero-suppressed data."""
+    return to_col_vector(median(wfs, axis=1))
+
+def modes  (wfs):
+    """Compute per-sensor mode baseline."""
+    return to_col_vector(mode  (wfs, axis=1))
 
 
 def subtract_baseline(wfs, *, bls_mode=BlsMode.mean):
@@ -98,6 +120,22 @@ def calibrate_wfs(wfs, adc_to_pes):
 
 
 def subtract_baseline_and_calibrate(sipm_wfs, adc_to_pes, *, bls_mode=BlsMode.mean):
+    """Subtract baseline and convert SiPM waveforms from ADC to photoelectrons.
+
+    Parameters
+    ----------
+    sipm_wfs : np.ndarray
+        SiPM waveforms of shape ``(n_sensors, n_samples)``.
+    adc_to_pes : np.ndarray
+        ADC-to-photoelectron conversion factors per sensor.
+    bls_mode : BlsMode
+        Baseline subtraction method.
+
+    Returns
+    -------
+    np.ndarray
+        Calibrated waveforms in photoelectrons.
+    """
     bls = subtract_baseline(sipm_wfs, bls_mode=bls_mode)
     return calibrate_wfs(bls, adc_to_pes)
 
@@ -147,14 +185,30 @@ def calibrate_sipms(sipm_wfs, adc_to_pes, thr, *, bls_mode=BlsMode.mode):
     return np.where(cwfs > thr, cwfs, 0)
 
 
-def subtract_mean  (wfs): return subtract_baseline(wfs, bls_mode=BlsMode.mean  )
-def subtract_median(wfs): return subtract_baseline(wfs, bls_mode=BlsMode.median)
-def subtract_mode  (wfs): return subtract_baseline(wfs, bls_mode=BlsMode.mode  )
+def subtract_mean  (wfs):
+    """Subtract per-sensor mean baseline from waveforms."""
+    return subtract_baseline(wfs, bls_mode=BlsMode.mean  )
+
+def subtract_median(wfs):
+    """Subtract per-sensor median baseline from waveforms."""
+    return subtract_baseline(wfs, bls_mode=BlsMode.median)
+
+def subtract_mode  (wfs):
+    """Subtract per-sensor mode baseline from waveforms."""
+    return subtract_baseline(wfs, bls_mode=BlsMode.mode  )
 
 
-def sipm_subtract_mode_and_calibrate  (sipm_wfs, adc_to_pes): return calibrate_wfs(subtract_mode  (sipm_wfs), adc_to_pes)
-def sipm_subtract_mean_and_calibrate  (sipm_wfs, adc_to_pes): return calibrate_wfs(subtract_mean  (sipm_wfs), adc_to_pes)
-def sipm_subtract_median_and_calibrate(sipm_wfs, adc_to_pes): return calibrate_wfs(subtract_median(sipm_wfs), adc_to_pes)
+def sipm_subtract_mode_and_calibrate  (sipm_wfs, adc_to_pes):
+    """Subtract mode baseline and calibrate SiPM waveforms to photoelectrons."""
+    return calibrate_wfs(subtract_mode  (sipm_wfs), adc_to_pes)
+
+def sipm_subtract_mean_and_calibrate  (sipm_wfs, adc_to_pes):
+    """Subtract mean baseline and calibrate SiPM waveforms to photoelectrons."""
+    return calibrate_wfs(subtract_mean  (sipm_wfs), adc_to_pes)
+
+def sipm_subtract_median_and_calibrate(sipm_wfs, adc_to_pes):
+    """Subtract median baseline and calibrate SiPM waveforms to photoelectrons."""
+    return calibrate_wfs(subtract_median(sipm_wfs), adc_to_pes)
 
 
 # Dict of functions for SiPM processing

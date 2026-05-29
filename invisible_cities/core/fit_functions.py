@@ -120,14 +120,60 @@ def gauss(x, area, mu, sigma):
 
 
 def polynom(x, *coeffs):
+    """Evaluate a polynomial at given x values.
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Point(s) at which to evaluate the polynomial.
+    *coeffs : float
+        Polynomial coefficients from lowest to highest degree.
+
+    Returns
+    -------
+    float or np.ndarray
+        Polynomial value(s) at x.
+    """
     return np.polynomial.polynomial.polyval(x, coeffs)
 
 
 def expo(x, const, mean):
+    """Evaluate an exponential function.
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Input value(s).
+    const : float
+        Amplitude (value at x=0).
+    mean : float
+        Decay constant (e-folding scale).
+
+    Returns
+    -------
+    float or np.ndarray
+        ``const * exp(x / mean)``.
+    """
     return const * np.exp(x/mean)
 
 
 def power(x, const, pow_):
+    """Evaluate a power-law function.
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Input value(s).
+    const : float
+        Normalization constant.
+    pow_ : float
+        Exponent.
+
+    Returns
+    -------
+    float or np.ndarray
+        ``const * x ** pow_``.
+    """
     return const * np.power(x, pow_)
 
 

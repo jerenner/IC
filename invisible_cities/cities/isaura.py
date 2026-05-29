@@ -1,6 +1,6 @@
 """
 -----------------------------------------------------------------------
-                              Isaura
+                                 Isaura
 -----------------------------------------------------------------------
 
 From ancient greek, Ισαυρία: an ancient rugged region in Asia Minor.
@@ -45,7 +45,7 @@ def isaura( files_in       : OneOrManyFiles
           ):
     """
     The city extracts topology information.
-    ----------
+
     Parameters
     ----------
     files_in  : str, filepath

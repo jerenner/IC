@@ -8,11 +8,14 @@ From Germanic, Teodomiro/Teodemaro: famous among its people.
 This city simulates the response of the different sensors within the
 detector, namely, PMTs and SiPMs. This can be summarized in the
 following tasks:
+
     - Add the sensor baseline.
     - Simulate the noise.
     - Simulate gain fluctuations.
     - Convert (true) photoelectrons to ADC counts.
+
 Besides, and only for PMTs:
+
     - Emulate the signal-derivative effect of the energy plane
       electronics.
     - Rebin 1-ns waveforms to 25-ns waveforms to match those produced
@@ -64,20 +67,53 @@ from typing import Optional
 
 
 @city
-def diomira( files_in       : OneOrManyFiles
-           , file_out       : str
-           , compression    : str
-           , event_range    : EventRangeType
-           , print_mod      : int
-           , detector_db    : str
-           , run_number     : int
-           , sipm_noise_cut : float
-           , filter_padding : int
-           , trigger_type   : Union[NoneType, str]
-           , trigger_params : Optional[dict]                 = dict()
-           , s2_params      : Optional[dict]                 = dict()
-           , random_seed    : Optional[Union[NoneType, int]] = None
-           ):
+def diomira(files_in       : OneOrManyFiles,
+            file_out       : str,
+            compression    : str,
+            event_range    : EventRangeType,
+            print_mod      : int,
+            detector_db    : str,
+            run_number     : int,
+            sipm_noise_cut : float,
+            filter_padding : int,
+            trigger_type   : Union[NoneType, str],
+            trigger_params : Optional[dict]                 = dict(),
+            s2_params      : Optional[dict]                 = dict(),
+            random_seed    : Optional[Union[NoneType, int]] = None):
+    """Simulate PMT and SiPM sensor response from MC photoelectrons.
+
+    Adds sensor baselines, noise, gain fluctuations, electronics effects,
+    and optionally emulates the detector trigger algorithm.
+
+    Parameters
+    ----------
+    files_in : OneOrManyFiles
+        Input MC waveform files.
+    file_out : str
+        Output file path.
+    compression : str
+        HDF5 compression filter.
+    event_range : EventRangeType
+        Events to process.
+    print_mod : int
+        Print frequency.
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    sipm_noise_cut : float
+        SiPM noise threshold multiplier.
+    filter_padding : int
+        Signal edge padding for noise suppression.
+    trigger_type : str or None
+        Trigger type to emulate. None disables trigger simulation.
+    trigger_params : dict
+        Trigger configuration parameters.
+    s2_params : dict
+        S2 search parameters for trigger emulation.
+    random_seed : int or None
+        Random seed for reproducibility.
+    """
     if random_seed is not None:
         np.random.seed(random_seed)
 
@@ -163,12 +199,27 @@ def diomira( files_in       : OneOrManyFiles
 
 
 def simulate_pmt_response(detector, run_number):
+    """Create a function that simulates PMT response with FEE and noise.
+
+    Parameters
+    ----------
+    detector : str
+        Detector database identifier.
+    run_number : int
+        Run number for calibration constants.
+
+    Returns
+    -------
+    Callable
+        Function that takes MC PMT photoelectron data and returns (RWF, BLR) arrays.
+    """
     datapmt       = load_db.DataPMT(detector, run_number)
     adc_to_pes    = np.abs(datapmt.adc_to_pes.values).astype(np.double)
     single_pe_rms = datapmt.Sigma.values.astype(np.double)
     pe_resolution = compute_pe_resolution(single_pe_rms, adc_to_pes)
 
     def simulate_pmt_response(pmtrd):
+        """Simulate PMT response with FEE, noise, and PE fluctuations."""
         rwf, blr = sf.simulate_pmt_response(0, pmtrd[np.newaxis],
                                             adc_to_pes, pe_resolution,
                                             detector, run_number)
@@ -178,8 +229,25 @@ def simulate_pmt_response(detector, run_number):
 
 
 def select_trigger_filter(trigger_type, trigger_params, s2_params):
+    """Select and configure a trigger filter based on trigger type.
+
+    Parameters
+    ----------
+    trigger_type : str or None
+        Type of trigger to emulate (e.g. 'S2'). None passes all events.
+    trigger_params : dict
+        Trigger channel and threshold configuration.
+    s2_params : dict
+        S2 search window parameters.
+
+    Returns
+    -------
+    Callable
+        Filter function that evaluates simulated trigger output.
+    """
     if   trigger_type is None:
         def always_pass(*args):
+            """No-op filter that passes all events."""
             return True
         return always_pass
 
@@ -205,8 +273,29 @@ def select_trigger_filter(trigger_type, trigger_params, s2_params):
 
 
 def emulate_trigger(detector_db, run_number, trigger_type, trigger_params, s2_params):
+    """Create a function that emulates the detector trigger on PMT waveforms.
+
+    Parameters
+    ----------
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number for calibration constants.
+    trigger_type : str or None
+        Trigger type to emulate. None returns a no-op function.
+    trigger_params : dict
+        Trigger channel and threshold configuration.
+    s2_params : dict
+        S2 search window and peak-finding parameters.
+
+    Returns
+    -------
+    Callable
+        Function that takes PMT waveforms and returns trigger peak data.
+    """
     if   trigger_type is None:
         def do_nothing(*args, **kwargs):
+            """No-op trigger emulation when trigger_type is None."""
             pass
         return do_nothing
     elif trigger_type == "S2":
@@ -229,12 +318,15 @@ def emulate_trigger(detector_db, run_number, trigger_type, trigger_params, s2_pa
         deconvolver = deconv_pmt(detector_db, run_number, n_baseline, IC_ids)
 
         def get_indices(cwf):
+            """Find waveform indices above height threshold."""
             return pkf.indices_and_wf_above_threshold(cwf, thr=min_height)[0]
 
         def find_peaks(cwf, idx):
+            """Find S2 peaks in waveform above-threshold regions."""
             return pkf.find_peaks(cwf, idx, Pk=S2, pmt_ids=[-1], **s2_params)
 
         def emulate_trigger(rwfs):
+            """Emulate S2 trigger by finding peaks on selected PMT channels."""
             cwfs = deconvolver(rwfs)
             peak_data = dict()
             for ID, cwf in zip(IC_ids, cwfs):

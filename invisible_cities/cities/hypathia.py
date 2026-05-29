@@ -7,6 +7,7 @@ From ancient Greek ‘Υπατια: highest, supreme.
 
 This city reads true waveforms from detsim and compute pmaps from them
 without simulating the electronics. This includes:
+
     - Rebin 1-ns waveforms to 25-ns waveforms to match those produced
       by the detector.
     - Produce a PMT-summed waveform.
@@ -50,30 +51,83 @@ from .  components import get_actual_sipm_thr
 
 
 @city
-def hypathia( files_in        : OneOrManyFiles
-            , file_out        : str
-            , compression     : str
-            , event_range     : EventRangeType
-            , print_mod       : int
-            , detector_db     : str
-            , run_number      : int
-            , sipm_noise_cut  : float
-            , filter_padding  : int
-            , thr_sipm        : float
-            , thr_sipm_type   : SiPMThreshold
-            , pmt_wfs_rebin   : int
-            , pmt_pe_rms      : float
-            , s1_lmin         : int  , s1_lmax     : int
-            , s1_tmin         : float, s1_tmax     : float
-            , s1_rebin_stride : int  , s1_stride   : int
-            , thr_csum_s1     : float
-            , s2_lmin         : int  , s2_lmax     : int
-            , s2_tmin         : float, s2_tmax     : float
-            , s2_rebin_stride : int  , s2_stride   : int
-            , thr_csum_s2     : float, thr_sipm_s2 : float
-            , pmt_samp_wid    : float
-            , sipm_samp_wid   : float
-            ):
+def hypathia(files_in        : OneOrManyFiles,
+             file_out        : str,
+             compression     : str,
+             event_range     : EventRangeType,
+             print_mod       : int,
+             detector_db     : str,
+             run_number      : int,
+             sipm_noise_cut  : float,
+             filter_padding  : int,
+             thr_sipm        : float,
+             thr_sipm_type   : SiPMThreshold,
+             pmt_wfs_rebin   : int,
+             pmt_pe_rms      : float,
+             s1_lmin         : int, s1_lmax     : int,
+             s1_tmin         : float, s1_tmax   : float,
+             s1_rebin_stride : int, s1_stride   : int,
+             thr_csum_s1     : float,
+             s2_lmin         : int, s2_lmax     : int,
+             s2_tmin         : float, s2_tmax   : float,
+             s2_rebin_stride : int, s2_stride   : int,
+             thr_csum_s2     : float, thr_sipm_s2 : float,
+             pmt_samp_wid    : float,
+             sipm_samp_wid   : float):
+    """Find S1/S2 pulses from MC waveforms without electronics simulation.
+
+    Rebins fine-grained MC PMT waveforms, adds PE fluctuations, simulates
+    SiPM response, and builds PMap objects from the processed signals.
+
+    Parameters
+    ----------
+    files_in : OneOrManyFiles
+        Input MC waveform files.
+    file_out : str
+        Output file path.
+    compression : str
+        HDF5 compression filter.
+    event_range : EventRangeType
+        Events to process.
+    print_mod : int
+        Print frequency.
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    sipm_noise_cut : float
+        SiPM noise threshold multiplier.
+    filter_padding : int
+        Signal edge padding for noise suppression.
+    thr_sipm : float
+        SiPM charge threshold.
+    thr_sipm_type : SiPMThreshold
+        SiPM threshold type.
+    pmt_wfs_rebin : int
+        PMT waveform rebin stride.
+    pmt_pe_rms : float
+        PMT single PE resolution (RMS).
+    s1_lmin, s1_lmax : int
+        S1 length bounds.
+    s1_tmin, s1_tmax : float
+        S1 time bounds.
+    s1_rebin_stride, s1_stride : int
+        S1 rebinning parameters.
+    thr_csum_s1 : float
+        PMT-sum S1 threshold.
+    s2_lmin, s2_lmax : int
+        S2 length bounds.
+    s2_tmin, s2_tmax : float
+        S2 time bounds.
+    s2_rebin_stride, s2_stride : int
+        S2 rebinning parameters.
+    thr_csum_s2 : float
+        PMT-sum S2 threshold.
+    thr_sipm_s2 : float
+        SiPM S2 threshold.
+    pmt_samp_wid, sipm_samp_wid : float
+        PMT and SiPM sample widths.
+    """
 
     sipm_thr = get_actual_sipm_thr(thr_sipm_type, thr_sipm, detector_db, run_number)
 
@@ -161,7 +215,20 @@ def hypathia( files_in        : OneOrManyFiles
 
 
 def rebin_pmts(rebin_stride):
+    """Create a function that rebins PMT waveforms by a given stride.
+
+    Parameters
+    ----------
+    rebin_stride : int
+        Number of consecutive samples to merge into one.
+
+    Returns
+    -------
+    Callable
+        Function that takes raw PMT waveforms and returns rebinned waveforms.
+    """
     def rebin_pmts(rwf):
+        """Rebin PMT waveforms by the configured stride."""
         rebinned_wfs = rwf
         if rebin_stride > 1:
             # dummy data for times and widths
@@ -174,4 +241,16 @@ def rebin_pmts(rebin_stride):
 
 
 def pmts_sum(rwfs):
+    """Sum PMT waveforms across all sensors to produce a single summed waveform.
+
+    Parameters
+    ----------
+    rwfs : np.ndarray
+        2-D array of PMT waveforms (nsensors, nsamples).
+
+    Returns
+    -------
+    np.ndarray
+        1-D summed waveform across the sensor axis.
+    """
     return rwfs.sum(axis=0)

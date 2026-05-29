@@ -242,6 +242,18 @@ def copy_mc_info(file_in      : str                       ,
 
 
 def check_mc_present(file_name : str) -> bool:
+    """Check whether an HDF5 file contains an MC group.
+
+    Parameters
+    ----------
+    file_name : str
+        Path to the input HDF5 file.
+
+    Returns
+    -------
+    bool
+        True if the MC group exists, False otherwise.
+    """
     with tb.open_file(file_name) as h5in:
         return hasattr(h5in.root, 'MC')
 
@@ -319,6 +331,7 @@ def _get_list_of_events_new(h5in : tb.file.File) -> np.ndarray:
     are assumed to be irrelevant for the analysis.
     """
     def get_event_ids_table(tablename):
+        """Extract unique event IDs from a specified MC sub-table."""
         try:
             evt_list = getattr(h5in.root.MC, tablename).cols.event_id
         except tb.exceptions.NoSuchNodeError:
@@ -878,8 +891,26 @@ def convert_timebin_to_time(sns_resp : pd.DataFrame,
     return sns_merge
 
 
-def read_mcinfo_evt (mctables: (tb.Table, tb.Table, tb.Table, tb.Table), event_number: int, last_row=0,
-                     return_only_hits: bool=False) -> ([tb.Table], [tb.Table], [tb.Table]):
+def read_mcinfo_evt(mctables: (tb.Table, tb.Table, tb.Table, tb.Table), event_number: int, last_row=0,
+                    return_only_hits: bool=False) -> ([tb.Table], [tb.Table], [tb.Table]):
+    """Read MC hit, particle, and generator rows for a specific event number.
+
+    Parameters
+    ----------
+    mctables : tuple of tb.Table
+        Tuple of (extents, hits, particles, generators) PyTables.
+    event_number : int
+        Event number to extract.
+    last_row : int
+        Starting row index in the extents table.
+    return_only_hits : bool
+        If True, skip reading particles and generators.
+
+    Returns
+    -------
+    tuple of lists
+        (hit_rows, particle_rows, generator_rows) for the requested event.
+    """
     h5extents    = mctables[0]
     h5hits       = mctables[1]
     h5particles  = mctables[2]

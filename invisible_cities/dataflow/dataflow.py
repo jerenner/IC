@@ -20,10 +20,23 @@ from operator    import itemgetter
 
 @contextmanager
 def closing(target):
+    """Ensure a target is closed when the context exits."""
     try:     yield
     finally: target.close()
 
 def coroutine(generator_function):
+    """Decorator that primes a generator coroutine for use.
+
+    Parameters
+    ----------
+    generator_function : Callable
+        Generator function to wrap.
+
+    Returns
+    -------
+    Callable
+        Primed coroutine ready to receive values via ``send()``.
+    """
     @wraps(generator_function)
     def proxy(*args, **kwds):
         coroutine = generator_function(*args, **kwds)
@@ -32,6 +45,18 @@ def coroutine(generator_function):
     return proxy
 
 def coroutine_send(generator_function):
+    """Decorator that primes a generator and returns its ``send`` method.
+
+    Parameters
+    ----------
+    generator_function : Callable
+        Generator function to wrap.
+
+    Returns
+    -------
+    Callable
+        The ``send`` method of the primed coroutine.
+    """
     @wraps(generator_function)
     def proxy(*args, **kwds):
         coroutine = generator_function(*args, **kwds)
@@ -48,6 +73,24 @@ def _more_than_one(spec): return     isinstance(spec, (tuple, list)          )
 
 # TODO: improve ValueError message
 def map(op=None, *, args=None, out=None, item=None):
+    """Apply a function to each item in the pipeline.
+
+    Parameters
+    ----------
+    op : Callable
+        Function to apply.
+    args : str or tuple
+        Field names to extract as arguments.
+    out : str or tuple
+        Field names to store results.
+    item : str
+        Shorthand for applying to a single item.
+
+    Returns
+    -------
+    coroutine
+        Coroutine that applies ``op`` to each item.
+    """
     if item is not None:
         if args is not None or out is not None:
             raise ValueError("dataflow.map: use of `item` parameter excludes both `args` and `out`")
@@ -83,6 +126,24 @@ def map(op=None, *, args=None, out=None, item=None):
 
 
 def flatmap(op=None, *, args=None, out=None, item=None):
+    """Apply a function returning iterables, flattening results.
+
+    Parameters
+    ----------
+    op : Callable
+        Function to apply, returning iterables.
+    args : str or tuple
+        Field names to extract as arguments.
+    out : str or tuple
+        Field names to store results.
+    item : str
+        Shorthand for applying to a single item.
+
+    Returns
+    -------
+    coroutine
+        Coroutine that applies ``op`` and flattens results.
+    """
     if item is not None:
         if args is not None or out is not None:
             raise ValueError("dataflow.flatmap: use of `item` parameter excludes both `args` and `out`")
@@ -120,6 +181,20 @@ def flatmap(op=None, *, args=None, out=None, item=None):
 
 
 def filter(predicate, *, args=None):
+    """Filter items based on a predicate.
+
+    Parameters
+    ----------
+    predicate : Callable
+        Function returning True/False.
+    args : str or tuple
+        Field names to extract for the predicate.
+
+    Returns
+    -------
+    coroutine
+        Coroutine that passes only items satisfying the predicate.
+    """
     if args is None:
         def filter_loop(target):
             with closing(target):
@@ -145,6 +220,20 @@ FutureFilter = namedtuple('FutureFilter', 'future filter')
 PassedFailed = namedtuple('PassedFailed', 'n_passed n_failed')
 
 def count_filter(predicate, *, args=None):
+    """Filter items and count passed/failed.
+
+    Parameters
+    ----------
+    predicate : Callable
+        Function returning True/False.
+    args : str or tuple
+        Field names to extract for the predicate.
+
+    Returns
+    -------
+    FutureFilter
+        Named tuple with ``future`` (resolves to counts) and ``filter`` coroutine.
+    """
     future = Future()
     n_passed = 0
     n_failed = 0
@@ -186,6 +275,18 @@ def count_filter(predicate, *, args=None):
 
 
 def spy(op):
+    """Observe items without modifying them.
+
+    Parameters
+    ----------
+    op : Callable
+        Function to apply to each item (side-effect only).
+
+    Returns
+    -------
+    coroutine
+        Coroutine that applies ``op`` and forwards items.
+    """
     @coroutine
     def spy_loop(target):
         with closing(target):
@@ -196,6 +297,18 @@ def spy(op):
     return spy_loop
 
 def branch(*pieces):
+    """Split pipeline: send items to both a side pipe and downstream.
+
+    Parameters
+    ----------
+    *pieces : coroutines
+        Pipeline pieces for the side branch.
+
+    Returns
+    -------
+    coroutine
+        Coroutine accepting a downstream target and forwarding items to both.
+    """
     sideways = pipe(*pieces)
     @coroutine
     def branch_loop(downstream):
@@ -209,6 +322,18 @@ def branch(*pieces):
 
 @coroutine
 def fork(*targets):
+    """Distribute each item to multiple targets.
+
+    Parameters
+    ----------
+    *targets : coroutines
+        Target coroutines to send items to.
+
+    Returns
+    -------
+    coroutine
+        Coroutine that forwards each item to all targets.
+    """
     targets = implicit_pipes(targets)
     try:
         while True:
@@ -224,6 +349,18 @@ def fork(*targets):
 FutureSink = namedtuple('FutureSink', 'future sink')
 
 def RESULT(generator_function):
+    """Decorator for coroutines that produce a final result via a Future.
+
+    Parameters
+    ----------
+    generator_function : Callable
+        Generator function taking a Future as first argument.
+
+    Returns
+    -------
+    Callable
+        Returns ``FutureSink`` with ``future`` and ``sink`` attributes.
+    """
     @wraps(generator_function)
     def proxy(*args, **kwds):
         future = Future()
@@ -233,6 +370,20 @@ def RESULT(generator_function):
     return proxy
 
 def sink(effect, *, args=None):
+    """Terminal pipeline stage that applies a side-effect function.
+
+    Parameters
+    ----------
+    effect : Callable
+        Function to apply to each item.
+    args : str or tuple
+        Field names to extract as arguments.
+
+    Returns
+    -------
+    coroutine
+        Terminal coroutine consuming items.
+    """
     if args is None:
         def sink_loop():
             while True:
@@ -248,6 +399,20 @@ def sink(effect, *, args=None):
     return coroutine(sink_loop)()
 
 def reduce(update, initial):
+    """Accumulate items into a single result.
+
+    Parameters
+    ----------
+    update : Callable
+        Function ``(accumulator, item) -> new_accumulator``.
+    initial : object
+        Initial accumulator value.
+
+    Returns
+    -------
+    FutureSink
+        Sink whose future resolves to the final accumulated value.
+    """
     @RESULT
     def reduce_loop(future):
         accumulator = copy.copy(initial)
@@ -260,6 +425,7 @@ def reduce(update, initial):
 
 @RESULT
 def count(future):
+    """Count items passing through the pipeline."""
     count = 0
     try:
         while True:
@@ -272,11 +438,30 @@ def count(future):
 FutureSpy = namedtuple("FutureSpy", "future spy")
 
 def spy_count():
+    """Create a spy that counts items without consuming them.
+
+    Returns
+    -------
+    FutureSpy
+        Named tuple with ``future`` (resolves to count) and ``spy`` branch.
+    """
     pair = count()
     return FutureSpy(future = pair.future, spy = branch(pair.sink))
 
 
 def stop_when(predicate):
+    """Create a sink that raises ``StopPipeline`` when predicate is true.
+
+    Parameters
+    ----------
+    predicate : Callable
+        Function returning True/False.
+
+    Returns
+    -------
+    coroutine
+        Sink that stops the pipeline when predicate matches.
+    """
     @sink
     def stop_when_loop(item):
         if predicate(item):
@@ -287,6 +472,21 @@ def stop_when(predicate):
 class StopPipeline(Exception): pass
 
 def push(source, pipe, result=()):
+    """Drive a pipeline by sending items from a source.
+
+    Parameters
+    ----------
+    source : iterable
+        Items to feed into the pipeline.
+    pipe : coroutine
+        Pipeline coroutine to send items to.
+    result : Future, dict, or tuple
+        Futures to collect results from.
+
+    Returns
+    -------
+    Result values from the futures in ``result``.
+    """
     for item in source:
         try:
             pipe.send(item)
@@ -301,7 +501,20 @@ def push(source, pipe, result=()):
 
 
 def pipe(*pieces):
+    """Chain coroutines into a pipeline.
 
+    Connects pieces sequentially so that output of one flows into the next.
+
+    Parameters
+    ----------
+    *pieces : coroutines or str
+        Pipeline components. Strings are converted to field pickers.
+
+    Returns
+    -------
+    coroutine
+        Connected pipeline, or a function awaiting a downstream sink.
+    """
     pieces = tuple(builtins.map(string_to_pick, pieces))
 
     def apply(arg, fn):
@@ -316,12 +529,38 @@ def pipe(*pieces):
 
 
 def string_to_pick(component):
+    """Convert a string to a field picker, or pass through unchanged.
+
+    Parameters
+    ----------
+    component : str or coroutine
+        String field name or existing component.
+
+    Returns
+    -------
+    coroutine
+        Map operation if component was a string, otherwise unchanged.
+    """
     if isinstance(component, str):
         return map(itemgetter(component))
     return component
 
 
 def slice(*args, close_all=False):
+    """Select a range of items from the pipeline.
+
+    Parameters
+    ----------
+    *args : int
+        Slice arguments (start, stop, step) as in ``builtins.slice``.
+    close_all : bool
+        If True, stop the entire pipeline when the slice ends.
+
+    Returns
+    -------
+    coroutine
+        Coroutine that forwards only items in the specified range.
+    """
     spec = builtins.slice(*args)
     start, stop, step = spec.start, spec.stop, spec.step
 
@@ -353,10 +592,12 @@ def slice(*args, close_all=False):
 
 
 def implicit_pipes(seq):
+    """Convert tuples to pipes, leaving other items unchanged."""
     return tuple(builtins.map(if_tuple_make_pipe, seq))
 
 
 def if_tuple_make_pipe(thing):
+    """Convert a tuple to a pipe, or pass through unchanged."""
     return pipe(*thing) if type(thing) is tuple else thing
 
 

@@ -55,6 +55,7 @@ def s1_waveforms_creator(s1_lighttable   : str,
     """
     Returns a function that creates the S1 waveforms from the hits (x, y, z, time, energy),
     with waveform parameters tmin (start absolute time of the waveform) and buffer_length.
+
     Parameters:
         :s1_lighttable: str
             the s1 lighttable filename, it can contain env variables
@@ -62,6 +63,7 @@ def s1_waveforms_creator(s1_lighttable   : str,
             the inverse scintillation yield
         :wf_pmt_bin_width:
             the waveform bin width that is returned by :create_s1_waveforms_from_hits:
+
     Returns:
         :create_s1_waveforms_from_hits: function
             see function docstring
@@ -70,7 +72,8 @@ def s1_waveforms_creator(s1_lighttable   : str,
 
     def create_s1_waveforms_from_hits(x, y, z, time, energy, tmin, buffer_length):
         """
-        Computes the s1 waveform from hits
+        Computes the s1 waveform from hits.
+
         Parameters:
             :x, y, z, time, energy: np.ndarray
                 event track hits

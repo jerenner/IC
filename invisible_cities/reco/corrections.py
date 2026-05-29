@@ -38,18 +38,16 @@ def read_maps(filename : str)->ASectorMap:
 
     Returns
     -------
-    ASectorMap:
+    ASectorMap
+        A dataclass containing:
 
-@dataclass
-class ASectorMap:
-    chi2    : DataFrame            # chi2 value for each bin
-    e0      : DataFrame            # geometric map
-    lt      : DataFrame            # lifetime map
-    e0u     : DataFrame            # uncertainties of geometric map
-    ltu     : DataFrame            # uncertainties of lifetime map
-    mapinfo : Optional[Series]     # series with some info about the
-    t_evol  : Optional[DataFrame]  # time evolution of some parameters
-                                     (only for data)
+        - chi2 : DataFrame - chi2 value for each bin
+        - e0 : DataFrame - geometric map
+        - lt : DataFrame - lifetime map
+        - e0u : DataFrame - uncertainties of geometric map
+        - ltu : DataFrame - uncertainties of lifetime map
+        - mapinfo : Optional[Series] - series with some info about the map
+        - t_evol : Optional[DataFrame] - time evolution of some parameters (only for data)
     """
 
     chi2     = pd.read_hdf(filename, 'chi2')
@@ -203,6 +201,18 @@ def get_df_to_z_converter(map_te: ASectorMap) -> Callable:
 
 
 def get_xy_bins(mapinfo):
+    """Compute x and y bin edges from map metadata.
+
+    Parameters
+    ----------
+    mapinfo : object
+        Object with ``xmin``, ``xmax``, ``nx``, ``ymin``, ``ymax``, ``ny`` attributes.
+
+    Returns
+    -------
+    tuple of np.ndarray
+        ``(binsx, binsy)`` arrays of bin edges.
+    """
     binsx   = np.linspace(mapinfo.xmin, mapinfo.xmax, mapinfo.nx + 1)
     binsy   = np.linspace(mapinfo.ymin, mapinfo.ymax, mapinfo.ny + 1)
     return binsx, binsy

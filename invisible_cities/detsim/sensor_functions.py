@@ -10,6 +10,20 @@ from .. reco              import wfm_functions as wfm
 
 
 def convert_channel_id_to_IC_id(data_frame, channel_ids):
+    """Convert external channel IDs to internal IC sensor indices.
+
+    Parameters
+    ----------
+    data_frame : pd.DataFrame
+        Database DataFrame containing a ChannelID column.
+    channel_ids : array-like
+        External channel IDs to look up.
+
+    Returns
+    -------
+    pd.Index
+        Indices of the channel_ids within the data_frame ChannelID column.
+    """
     return pd.Index(data_frame.ChannelID).get_indexer(channel_ids)
 
 
@@ -32,10 +46,12 @@ def charge_fluctuation(signal, single_pe_rms):
 
 
 def simulate_pmt_response(event, pmtrd, adc_to_pes, pe_resolution, detector_db='new', run_number = 0):
-    """ Full simulation of the energy plane response
+    """Full simulation of the energy plane response
+
     Input:
      1) extensible array pmtrd
      2) event_number
+
     returns:
     array of raw waveforms (RWF) obtained by convoluting pmtrd with the PMT
     front end electronics (LPF, HPF filters)

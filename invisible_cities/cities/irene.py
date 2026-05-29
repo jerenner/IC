@@ -7,7 +7,9 @@ From ancient Greek, Εἰρήνη: Peace.
 
 This city finds the signal pulses within the waveforms produced by the
 detector or by diomira in the case of Monte Carlo data.
+
 This includes a number of tasks:
+
     - Remove the signal-derivative effect of the PMT waveforms.
     - Calibrate PMTs and produced a PMT-summed waveform.
     - Remove the baseline from the SiPM waveforms and calibrate them.
@@ -46,28 +48,79 @@ from .  components import get_actual_sipm_thr
 
 
 @city
-def irene( files_in        : OneOrManyFiles
-         , file_out        : str
-         , compression     : str
-         , event_range     : EventRangeType
-         , print_mod       : int
-         , detector_db     : str
-         , run_number      : int
-         , n_baseline      : int
-         , n_maw           : int
-         , thr_maw         : float
-         , thr_sipm        : float
-         , thr_sipm_type   : SiPMThreshold
-         , s1_lmin         : int  , s1_lmax      : int
-         , s1_tmin         : float, s1_tmax      : float
-         , s1_rebin_stride : int  , s1_stride    : int
-         , thr_csum_s1     : float
-         , s2_lmin         : int  , s2_lmax      : int
-         , s2_tmin         : float, s2_tmax      : float
-         , s2_rebin_stride : int  , s2_stride    : int
-         , thr_csum_s2     : float, thr_sipm_s2  : float
-         , pmt_samp_wid    : float, sipm_samp_wid: float
-         ):
+def irene(files_in        : OneOrManyFiles,
+          file_out        : str,
+          compression     : str,
+          event_range     : EventRangeType,
+          print_mod       : int,
+          detector_db     : str,
+          run_number      : int,
+          n_baseline      : int,
+          n_maw           : int,
+          thr_maw         : float,
+          thr_sipm        : float,
+          thr_sipm_type   : SiPMThreshold,
+          s1_lmin         : int, s1_lmax      : int,
+          s1_tmin         : float, s1_tmax    : float,
+          s1_rebin_stride : int, s1_stride    : int,
+          thr_csum_s1     : float,
+          s2_lmin         : int, s2_lmax      : int,
+          s2_tmin         : float, s2_tmax    : float,
+          s2_rebin_stride : int, s2_stride    : int,
+          thr_csum_s2     : float, thr_sipm_s2: float,
+          pmt_samp_wid    : float, sipm_samp_wid: float):
+    """Find S1 and S2 signal pulses in PMT and SiPM waveforms.
+
+    Deconvolves PMT waveforms, calibrates PMTs and SiPMs, finds peaks
+    above threshold, and builds PMap objects linking S1-S2 pairs.
+
+    Parameters
+    ----------
+    files_in : OneOrManyFiles
+        Input waveform files.
+    file_out : str
+        Output file path.
+    compression : str
+        HDF5 compression filter.
+    event_range : EventRangeType
+        Events to process.
+    print_mod : int
+        Print frequency.
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    n_baseline : int
+        Number of baseline samples for PMT deconvolution.
+    n_maw : int
+        Moving-average window size for PMT calibration.
+    thr_maw : float
+        MAW threshold for PMT calibration.
+    thr_sipm : float
+        SiPM charge threshold.
+    thr_sipm_type : SiPMThreshold
+        SiPM threshold type (common or individual).
+    s1_lmin, s1_lmax : int
+        S1 length bounds in samples.
+    s1_tmin, s1_tmax : float
+        S1 time bounds.
+    s1_rebin_stride, s1_stride : int
+        S1 rebinning and stride parameters.
+    thr_csum_s1 : float
+        PMT-sum threshold for S1 search.
+    s2_lmin, s2_lmax : int
+        S2 length bounds in samples.
+    s2_tmin, s2_tmax : float
+        S2 time bounds.
+    s2_rebin_stride, s2_stride : int
+        S2 rebinning and stride parameters.
+    thr_csum_s2 : float
+        PMT-sum threshold for S2 search.
+    thr_sipm_s2 : float
+        SiPM threshold for S2.
+    pmt_samp_wid, sipm_samp_wid : float
+        PMT and SiPM sample widths.
+    """
 
     sipm_thr = get_actual_sipm_thr(thr_sipm_type, thr_sipm, detector_db, run_number)
 

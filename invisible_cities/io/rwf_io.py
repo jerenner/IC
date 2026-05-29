@@ -67,6 +67,21 @@ def rwf_writer(h5out           : tb.file.File,
 
 
 def ic_event_number_base(max_subevt: int) -> Callable:
+    """Create an event number generator from a maximum sub-event count.
+
+    Returns a function that maps a Nexus event number to an IC event number
+    base, computed as ``nexus_event * max_subevt``.
+
+    Parameters
+    ----------
+    max_subevt : int
+        Maximum number of sub-events per Nexus event.
+
+    Returns
+    -------
+    Callable
+        Function taking a Nexus event number and returning the IC event base.
+    """
     def generate_evt_number(nexus_event: int) -> int:
         return nexus_event * max_subevt
     return generate_evt_number

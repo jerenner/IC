@@ -14,13 +14,17 @@ This city performs three main tasks:
 This city reads hDSTs produced by Sophronia and produces tracks and
 corrected hits. It also produces a summary of the event topology and
 copies the kDST from the input to the output file.
+
 The steps performed by Esmeralda are:
+
   - Apply geometrical and lifetime corrections
   - Fiducialize hits: remove external hits that cannot be corrected
     accurately
   - Apply a high charge threshold to the input hits
+
     - If this leaves behind a slice with no hits, a fake (NN) hit is
       temporarily created.
+
   - Merge NN-hits: The NN-hits' energy is reassigned to the closest
     non-NN-hits
   - Voxelizes surviving hits
@@ -28,6 +32,7 @@ The steps performed by Esmeralda are:
   - Drops low energy voxels in the track extrema
   - Obtains the blobs energy
   - Produces a topology summary of the event
+
 """
 
 #TODO: revisit summary. out_of_map field is outdated
@@ -58,8 +63,21 @@ from .. io.run_and_event_io import run_and_event_writer
 
 
 def hit_dropper(radius : float):
+    """Create a function that drops hits outside a given radial fiducial radius.
+
+    Parameters
+    ----------
+    radius : float
+        Maximum radial distance (sqrt(X^2 + Y^2)) for hits to keep.
+
+    Returns
+    -------
+    Callable
+        Function that takes a hits DataFrame and returns hits within the radius.
+    """
     max_r2 = radius**2
     def drop_hits(hits : pd.DataFrame) -> pd.DataFrame:
+        """Remove hits outside the fiducial radius."""
         r2 = hits.X**2 + hits.Y**2
         return hits.loc[r2 < max_r2].reset_index(drop=True)
 
@@ -102,44 +120,33 @@ def esmeralda( files_in         : OneOrManyFiles
     same_peak : bool
         whether to reassign NN hits' energy only to the hits from the same peak
 
-    paolina_params              :dict
-        vox_size                : [float, detfloat, float]
-            (maximum) size of voxels for track reconstruction
-        strict_vox_size         : bool
-            if False allows per event adaptive voxel size,
-            smaller of equal thatn vox_size from sophronia
-        energy_threshold        : float
-            if energy of end-point voxel is smaller
-            the voxel will be dropped and energy redistributed to the neighbours
-        min_voxels              : int
-            after min_voxel number of voxels is reached no dropping will happen.
-        blob_radius             : float
-            radius of blob
-        max_num_hits            : int
-            maximum number of hits allowed per event to run paolina functions.
+    paolina_params : dict
+        Dictionary containing track reconstruction parameters:
+
+        * vox_size - [float, float, float], (maximum) size of voxels for track reconstruction
+        * strict_vox_size - bool, if False allows per event adaptive voxel size,
+          smaller of equal than vox_size from sophronia
+        * energy_threshold - float, if energy of end-point voxel is smaller
+          the voxel will be dropped and energy redistributed to the neighbours
+        * min_voxels - int, after min_voxel number of voxels is reached no dropping will happen.
+        * blob_radius - float, radius of blob
+        * max_num_hits - int, maximum number of hits allowed per event to run paolina functions.
 
     corrections : dict
-        filename   : str
-            Path to the file holding the correction maps
-        apply_temp : bool
-            Whether to apply temporal corrections
-        norm_method : NormMethod
-            Normalization method
-        norm_value : dict, optional
-            Normalization parameters
+        Dictionary containing correction map parameters:
 
-    Input
-    ----------
-    /RECO/Events
-    /DST/Events
+        * filename - str, Path to the file holding the correction maps
+        * apply_temp - bool, Whether to apply temporal corrections
+        * norm_method - NormMethod, Normalization method
+        * norm_value - dict (optional), Normalization parameters
 
-    Output
-    ----------
-    - CHITS corrected hits table,
-        - highTh - contains corrected hits table that passed h.Q >= charge_threshold_high constrain.
-                   it also contains:
-                   - Ep field that is the energy of a hit after applying drop_end_point_voxel algorithm.
-                   - track_id denoting to which track from Tracking/Tracks dataframe the hit belong to
+    Input/Output
+    ------------
+    The city reads from ``/RECO/Events`` and ``/DST/Events``, and writes:
+
+    - CHITS corrected hits table (highTh contains corrected hits that passed
+      h.Q >= charge_threshold_high constrain, with Ep field for energy after
+      drop_end_point_voxel algorithm and track_id for track membership)
     - MC info (if run number <=0)
     - Tracking/Tracks - summary of per track information
     - Summary/events  - summary of per event information

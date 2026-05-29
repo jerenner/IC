@@ -1,11 +1,12 @@
 """
 -----------------------------------------------------------------------
-                               Beersheba
+                                Beersheba
 -----------------------------------------------------------------------
+
 Beersheba, a city suspended from the heavens, inhabited only by
 idealists.
 
-This city applies a Lucy-Rihcardson (LR) algorithm to reconstruct the
+This city applies a Lucy-Richardson (LR) algorithm to reconstruct the
 electron cloud density.
 
 It reads hDSTs produced by Sophronia and produces deconvolved
@@ -13,7 +14,9 @@ hits. The LR deconvolution finds the (discretized) charge distribution
 that generates the input image based on the PSF of the system. Each
 bin in the charge distribution is interpreted as a (deconvolved)
 hit.
+
 The workflow of Beersheba can be summarized as:
+
   - Apply geometrical and lifetime corrections
   - Apply a low charge threshold to the input hits. If this leaves
     behind a slice with no hits, a fake hit (NN-hit) is temporarily
@@ -25,16 +28,19 @@ The workflow of Beersheba can be summarized as:
   - Drops isolated sensors (*)
   - Normalizes charge within each S2 peak
   - For each slice
+
     - Interpolates the hits to obtain a continuous image (real_image)
     - Generate a flat charge distribution as a seed
     - Do the following until a maximum number of iterations is reached
       or the difference between consecutive images is smaller than a
       threshold
+
       - Convolve the charge distribution with the PSF (new_image)
       - Update the charge distribution according to the difference
         between new_image and real_image
       - Clean up the image by applying a cut on the fraction of energy
         of the resulting charge-distribution hits
+
 """
 
 import numpy  as np
@@ -94,6 +100,20 @@ from typing import Optional
 from typing import Union
 
 def event_info_adder(timestamp : float, dst : pd.DataFrame):
+    """Add a time column (in seconds) to a deconvolution hits DataFrame.
+
+    Parameters
+    ----------
+    timestamp : float
+        Event timestamp in milliseconds.
+    dst : pd.DataFrame
+        Deconvolution hits DataFrame.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with an additional 'time' column in seconds.
+    """
     return dst.assign(time=timestamp/1e3)
 
 
@@ -306,7 +326,8 @@ def cut_over_Q(q_cut, redist_var):
     '''
     cut = cut_and_redistribute_df(f"Q > {q_cut}", redist_var)
 
-    def cut_over_Q(df):  # df shall be an event cdst
+    def cut_over_Q(df):
+        """Apply charge cut and redistribute energy for each event/peak."""
         cdst = df.groupby(['event', 'npeak']).apply(cut).reset_index(drop=True)
 
         return cdst
@@ -343,7 +364,8 @@ def drop_isolated( distance   : List[float],
         raise ValueError(f"Invalid drop_dist parameter: expected 2 or 3 entries, but got {len(distance)}.")
 
 
-    def drop_isolated(df): # df shall be an event cdst
+    def drop_isolated(df):
+        """Drop isolated sensors/clusters for each event/peak."""
         df = df.groupby(['event', 'npeak']).apply(drop).reset_index(drop=True)
 
         return df
@@ -364,6 +386,7 @@ def deconv_writer(h5out):
     For a given open table returns a writer for deconvolution hits dataframe
     """
     def write_deconv(df):
+        """Write deconvolved hits DataFrame to HDF5."""
         return df_writer(h5out              = h5out             ,
                          df                 = df                ,
                          group_name         = 'DECO'            ,
@@ -390,7 +413,7 @@ def beersheba( files_in         : OneOrManyFiles
              ):
     """
     The city corrects Sophronia hits energy and extracts topology information.
-    ----------
+
     Parameters
     ----------
     files_in    : str, filepath

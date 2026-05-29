@@ -11,22 +11,50 @@ generic_params = ["normalization", "poisson_mu"    ,
 
 
 def create_param_table(h5out, sensor_type, func_name, parameter_dict):
+    """Create an HDF5 table for storing fit parameters.
 
-    ## If the group 'FITPARAMS' doesn't already exist, create it
+    Creates the ``FITPARAMS`` group if it does not exist, then adds a
+    table named ``FIT_<sensor_type>_<func_name>``.
+
+    Parameters
+    ----------
+    h5out : tb.File
+        Open HDF5 file.
+    sensor_type : str
+        Sensor type, e.g. ``pmt``, ``sipm``, ``FE``.
+    func_name : str
+        Name of the fitting function.
+    parameter_dict : dict
+        Column definitions for the PyTables table.
+
+    Returns
+    -------
+    tb.Table
+        Created parameter table.
+    """
     try:                       PARAM_group = getattr(h5out.root, "FITPARAMS")
     except tb.NoSuchNodeError: PARAM_group = h5out.create_group(h5out.root,
-                                                                "FITPARAMS")
-    ## Define a table for this fitting function
+                                                                 "FITPARAMS")
     param_table = h5out.create_table(PARAM_group,
-                                     "FIT_"+sensor_type+"_"+func_name,
-                                     parameter_dict,
-                                     "Calibration parameters",
-                                     tbl.filters("NOCOMPR"))
+                                      "FIT_"+sensor_type+"_"+func_name,
+                                      parameter_dict,
+                                      "Calibration parameters",
+                                      tbl.filters("NOCOMPR"))
     return param_table
 
 
 def store_fit_values(param_table, sensor_id, fit_result):
+    """Store fit parameters for a single sensor channel.
 
+    Parameters
+    ----------
+    param_table : tb.Table
+        Open parameter table from ``create_param_table``.
+    sensor_id : int
+        Sensor channel identifier.
+    fit_result : dict
+        Mapping of parameter names to ``(value, error)`` tuples.
+    """
     channel = param_table.row
     channel["SensorID"] = sensor_id
     for key, param in fit_result.items():
@@ -119,7 +147,22 @@ def generator_param_reader(h5in, table_name):
 
 
 def subset_param_reader(h5in, table_name, param_names):
+    """Read a subset of parameters from a fit table.
 
+    Parameters
+    ----------
+    h5in : tb.File
+        Open HDF5 file.
+    table_name : str
+        Name of the fit parameter table.
+    param_names : list of str
+        Parameter column names to read.
+
+    Yields
+    ------
+    tuple
+        ``(sensor_id, (param_dict, error_dict))`` for each row.
+    """
     table_names, _, param_tables = basic_param_reader(h5in)
 
     try:
@@ -156,6 +199,20 @@ def single_channel_value_reader(channel, param_table, param_names):
 
 
 def parameters_and_errors(table_row, parameters):
+    """Extract parameter values and errors from a table row.
+
+    Parameters
+    ----------
+    table_row : np.ndarray
+        Single row from a fit parameter table.
+    parameters : list of str
+        Column names for the parameters.
+
+    Returns
+    -------
+    tuple of dict
+        ``(param_dict, error_dict)`` mapping names to values and errors.
+    """
     param_dict = {}
     error_dict = {}
     for pname in parameters:

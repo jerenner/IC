@@ -22,12 +22,12 @@ by an appropriate *deconvolution algorithm*.
 This could be done as follows:
 
 - Read RWF data from file into some (transient) representation. Notice that
-persistent and transient representation of the data are in general different.
+  persistent and transient representation of the data are in general different.
 
 - Filter RWF data (e.g, eliminate malformed events if they exist).
 
-- Transform RWF data into CWF data (corrected waveforms) by applying  a
- deconvolution algorithm.
+- Transform RWF data into CWF data (corrected waveforms) by applying a
+  deconvolution algorithm.
 
 - Write CWF to file.
 
@@ -49,7 +49,7 @@ peaks. For example, the city of IRENE does the following tasks.
 - Compute zero-suppression in SiPMs.
 
 - Finds PMAPS, e.g, structures in which a peak in the PMTs is matched to
-a signal in the SiPMs.
+  a signal in the SiPMs.
 
 - Write PMAPs.
 

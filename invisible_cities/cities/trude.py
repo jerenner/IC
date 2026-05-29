@@ -57,22 +57,57 @@ from .  components import waveform_integrator
 
 
 @city
-def trude( files_in         : OneOrManyFiles
-         , file_out         : str
-         , compression      : str
-         , event_range      : EventRangeType
-         , print_mod        : int
-         , detector_db      : str
-         , run_number       : int
-         , proc_mode        : SiPMCalibMode
-         , min_bin          : float
-         , max_bin          : float
-         , bin_width        : float
-         , number_integrals : int
-         , integral_start   : float
-         , integral_width   : float
-         , integrals_period : float
-         ):
+def trude(files_in         : OneOrManyFiles,
+          file_out         : str,
+          compression      : str,
+          event_range      : EventRangeType,
+          print_mod        : int,
+          detector_db      : str,
+          run_number       : int,
+          proc_mode        : SiPMCalibMode,
+          min_bin          : float,
+          max_bin          : float,
+          bin_width        : float,
+          number_integrals : int,
+          integral_start   : float,
+          integral_width   : float,
+          integrals_period : float):
+    """Produce SiPM light and dark charge spectra from calibration runs.
+
+    Integrates waveform regions with and without LED pulses to produce
+    separate light and dark spectra for PE resolution calibration.
+
+    Parameters
+    ----------
+    files_in : OneOrManyFiles
+        Input waveform files.
+    file_out : str
+        Output file path.
+    compression : str
+        HDF5 compression filter.
+    event_range : EventRangeType
+        Events to process.
+    print_mod : int
+        Print frequency.
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    proc_mode : SiPMCalibMode
+        Baseline subtraction mode (mode or median).
+    min_bin, max_bin : float
+        Histogram range boundaries.
+    bin_width : float
+        Histogram bin width.
+    number_integrals : int
+        Number of integration windows per waveform.
+    integral_start : float
+        Start time (us) of first integration window.
+    integral_width : float
+        Width (us) of each integration window.
+    integrals_period : float
+        Period (us) between consecutive integration windows.
+    """
     if proc_mode not in SiPMCalibMode:
         raise ValueError(f"Unrecognized processing mode: {proc_mode}")
 

@@ -7,17 +7,32 @@ from .. evm.event_model    import VoxelCollection
 from .. evm.nh5            import VoxelsTable
 
 def true_voxels_writer(hdf5_file, *, compression=None):
+    """Create an HDF5 writer for true voxels.
 
+    Creates a table in the ``TrueVoxels/Voxels`` group, indexed on the
+    ``event`` column.
+
+    Parameters
+    ----------
+    hdf5_file : tb.File
+        Open HDF5 file.
+    compression : str, optional
+        Compression mode, passed to ``tbl.filters``.
+
+    Returns
+    -------
+    Callable
+        Function that writes voxels for a single event to the table.
+    """
     voxels_table  = make_table(hdf5_file,
                              group       = 'TrueVoxels',
                              name        = 'Voxels',
                              fformat     = VoxelsTable,
                              description = 'Voxels',
                              compression = compression)
-    # Mark column to index after populating table
     voxels_table.set_attr('columns_to_index', ['event'])
 
-    def write_voxels(evt_number,voxels_event):
+    def write_voxels(evt_number, voxels_event):
         row = voxels_table.row
         for voxel in voxels_event:
             row["event"] = evt_number

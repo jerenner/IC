@@ -13,9 +13,33 @@ class DetDB:
     flex100 = os.environ['ICTDIR'] + '/invisible_cities/database/localdb.Flex100DB.sqlite3'
 
 def tmap(*args):
+    """Apply map and return result as a tuple.
+
+    Parameters
+    ----------
+    *args : arguments to pass to map.
+
+    Returns
+    -------
+    tuple
+        Mapped results as a tuple.
+    """
     return tuple(map(*args))
 
+
 def get_db(db):
+    """Resolve a database name to its full file path.
+
+    Parameters
+    ----------
+    db : str
+        Database identifier (e.g. 'new', 'demopp') or explicit path.
+
+    Returns
+    -------
+    str
+        Full path to the SQLite database file.
+    """
     return getattr(DetDB, db, db)
 
 # Run to take always the same calibration constant, etc for MC files
@@ -24,6 +48,20 @@ runNumberForMC = 3012
 
 @lru_cache(maxsize=10)
 def DataPMT(db_file, run_number=1e5):
+    """Load PMT calibration and position data from the detector database.
+
+    Parameters
+    ----------
+    db_file : str
+        Database identifier or path.
+    run_number : int
+        Run number for selecting calibration constants.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with PMT sensor info, positions, gains, and masks.
+    """
     if run_number == 0:
         run_number = runNumberForMC
 
@@ -55,6 +93,20 @@ order by Active desc, pos.SensorID
 
 @lru_cache(maxsize=10)
 def DataSiPM(db_file, run_number=1e5):
+    """Load SiPM calibration and position data from the detector database.
+
+    Parameters
+    ----------
+    db_file : str
+        Database identifier or path.
+    run_number : int
+        Run number for selecting calibration constants.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with SiPM sensor info, positions, gains, and masks.
+    """
     if run_number == 0:
         run_number = runNumberForMC
 
@@ -84,6 +136,18 @@ order by pos.SensorID'''.format(abs(run_number))
 
 @lru_cache(maxsize=10)
 def DetectorGeo(db_file):
+    """Load detector geometry information from the database.
+
+    Parameters
+    ----------
+    db_file : str
+        Database identifier or path.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing detector geometry parameters.
+    """
     conn = sqlite3.connect(get_db(db_file))
     sql = 'select * from DetectorGeo'
     data = pd.read_sql_query(sql, conn)
@@ -92,6 +156,20 @@ def DetectorGeo(db_file):
 
 @lru_cache(maxsize=10)
 def SiPMNoise(db_file, run_number=1e5):
+    """Load SiPM noise PDF data (probabilities, bin edges, baselines) from the database.
+
+    Parameters
+    ----------
+    db_file : str
+        Database identifier or path.
+    run_number : int
+        Run number for selecting noise data.
+
+    Returns
+    -------
+    tuple of np.array
+        (noise_probabilities, noise_bins, baselines) for each SiPM.
+    """
     conn = sqlite3.connect(get_db(db_file))
     cursor = conn.cursor()
 
@@ -121,6 +199,20 @@ order by SensorID, BinEnergyPes;'''.format(abs(run_number))
 
 @lru_cache(maxsize=10)
 def PMTLowFrequencyNoise(db_file, run_number=1e5):
+    """Load PMT low-frequency noise parameters and FE box mapping from the database.
+
+    Parameters
+    ----------
+    db_file : str
+        Database identifier or path.
+    run_number : int
+        Run number for selecting noise data.
+
+    Returns
+    -------
+    tuple
+        (mapping DataFrame, frequencies values array) for PMT FE boxes.
+    """
     conn = sqlite3.connect(get_db(db_file))
 
     sqlmapping = '''select SensorID, FEBox from PMTFEMapping
@@ -146,6 +238,20 @@ def PMTLowFrequencyNoise(db_file, run_number=1e5):
 
 @lru_cache(maxsize=10)
 def RadioactivityData(db_file, version=None):
+    """Load radioactivity and efficiency data from the detector database.
+
+    Parameters
+    ----------
+    db_file : str
+        Database identifier or path.
+    version : int or None
+        Version of the radioactivity data to load. Uses latest if None.
+
+    Returns
+    -------
+    tuple of pd.DataFrame
+        (activity DataFrame, efficiency DataFrame) for isotopes by volume.
+    """
 
     conn = sqlite3.connect(get_db(db_file))
 

@@ -4,6 +4,13 @@ from .. sierpe   import fee as FE
 
 
 def write_FEE_table(h5out):
+    """Create and store the FEE parameters table in the output HDF5 file.
+
+    Parameters
+    ----------
+    h5out : tb.file.File
+        Output HDF5 file handle.
+    """
     fee_table = _create_FEE_table(h5out)
     _store_FEE_table(fee_table)
 

@@ -10,6 +10,7 @@ def eff_of_selection(df_before  : pd.DataFrame,
                      name       : str = "") -> float:
     """
     Calculates the efficiency of a certain selection.
+
     Parameters
     ----------
     df_before : pd.DataFrame
@@ -110,6 +111,7 @@ def apply_selections(kdst        : pd.DataFrame,
                      high_nsipm  : float) -> [pd.DataFrame, pd.DataFrame]:
     """
     Applies all necessary selections to get a selected dataframe with its corresponding efficiencies.
+
     Parameters
     ----------
     kdst : pd.DataFrame
@@ -133,9 +135,10 @@ def apply_selections(kdst        : pd.DataFrame,
     high_DT : float
       Upper drift time limit
     low_nsipm : float
-g      Low number of triggered SiPMs
-    high_nsipm : floar
+      Low number of triggered SiPMs
+    high_nsipm : float
       Upper number of triggered SiPMs
+
     Returns
     -------
     df_final : pd.DataFrame

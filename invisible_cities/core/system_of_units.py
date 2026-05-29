@@ -367,4 +367,16 @@ adc = 1
 
 
 def celsius(tKelvin):
+    """Convert temperature from Kelvin to Celsius.
+
+    Parameters
+    ----------
+    tKelvin : float
+        Temperature in Kelvin.
+
+    Returns
+    -------
+    float
+        Temperature in Celsius.
+    """
     return tKelvin - 273.15

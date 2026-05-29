@@ -43,9 +43,27 @@ def voxelize_hits(hits             : pd.DataFrame,
                   voxel_dimensions : np.ndarray,
                   strict_voxel_size: bool = False,
                   energy_type      : HitEnergy = HitEnergy.E) -> List[Voxel]:
-    # 1. Find bounding box of all hits.
-    # 2. Allocate hits to regular sub-boxes within bounding box, using histogramdd.
-    # 3. Calculate voxel energies by summing energies of hits within each sub-box.
+    """Convert a set of hits into voxels on a regular 3D grid.
+
+    Hits are grouped into cubic voxels of the specified size. The voxel
+    grid is aligned to the bounding box of the hits.
+
+    Parameters
+    ----------
+    hits : pd.DataFrame
+        DataFrame with ``X``, ``Y``, ``Z`` and energy columns.
+    voxel_dimensions : np.ndarray
+        Side length of cubic voxels in ``(X, Y, Z)``.
+    strict_voxel_size : bool
+        If True, use exact voxel dimensions; otherwise adapt to fit hits.
+    energy_type : HitEnergy
+        Which energy column to use (``E``, ``Ec``, or ``Ep``).
+
+    Returns
+    -------
+    List[Voxel]
+        List of voxels, each containing the hits within it.
+    """
     if hits.empty:
         raise NoHits
 
@@ -105,6 +123,22 @@ def voxelize_hits(hits             : pd.DataFrame,
 
 
 def neighbours(va : Voxel, vb : Voxel, contiguity : Contiguity = Contiguity.CORNER) -> bool:
+    """Check if two voxels are neighbours based on normalized distance.
+
+    Parameters
+    ----------
+    va : Voxel
+        First voxel.
+    vb : Voxel
+        Second voxel.
+    contiguity : Contiguity
+        Contiguity threshold (FACE, EDGE, or CORNER).
+
+    Returns
+    -------
+    bool
+        True if the normalized distance is below the threshold.
+    """
     return np.linalg.norm((va.pos - vb.pos) / va.size) < contiguity.value
 
 
@@ -126,6 +160,18 @@ def make_track_graphs(voxels           : Sequence[Voxel],
 
 
 def connected_component_subgraphs(G):
+    """Extract connected component subgraphs from a graph.
+
+    Parameters
+    ----------
+    G : nx.Graph
+        Input graph.
+
+    Yields
+    ------
+    nx.Graph
+        Subgraph for each connected component.
+    """
     return (G.subgraph(c).copy() for c in nx.connected_components(G))
 
 
@@ -180,11 +226,39 @@ def length(track: Graph) -> float:
 
 
 def energy_of_voxels_within_radius(distances : Dict[Voxel, float], radius : float) -> float:
+    """Sum energies of voxels within a given radius.
+
+    Parameters
+    ----------
+    distances : Dict[Voxel, float]
+        Mapping of voxels to their distances from a reference point.
+    radius : float
+        Maximum distance to include.
+
+    Returns
+    -------
+    float
+        Total energy of voxels within the radius.
+    """
     return sum(v.E for (v, d) in distances.items() if d < radius)
 
 
 def voxels_within_radius(distances : Dict[Voxel, float],
                          radius : float) -> List[Voxel]:
+    """Return voxels within a given radius from a reference point.
+
+    Parameters
+    ----------
+    distances : Dict[Voxel, float]
+        Mapping of voxels to their distances from a reference point.
+    radius : float
+        Maximum distance to include.
+
+    Returns
+    -------
+    List[Voxel]
+        Voxels whose distance is less than the radius.
+    """
     return [v for (v, d) in distances.items() if d < radius]
 
 
@@ -383,4 +457,16 @@ def drop_end_point_voxels(voxels           : Sequence[Voxel],
 
 
 def get_track_energy(track):
+    """Sum the hit energies of all voxels in a track graph.
+
+    Parameters
+    ----------
+    track : Graph
+        Track graph whose nodes are voxels.
+
+    Returns
+    -------
+    float
+        Total energy from all hits in the track.
+    """
     return sum([vox.Ehits for vox in track.nodes()])

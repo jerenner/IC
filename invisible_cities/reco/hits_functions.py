@@ -185,7 +185,7 @@ def apply_threshold(hits: pd.DataFrame, th: float) -> pd.DataFrame:
     Notes
     -----
     - Energy renormalization ensures that the sum of `E` and `Ec` for the remaining
-      hits equals the sum of `E` and `Ec` in the original `hits` DataFrame.
+      hits equals the sum of `E` and `Ec` in the original DataFrame.
     - If no hits survive the threshold, the returned DataFrame has a single "empty"
       hit corresponding to the first hit's event metadata.
     """
@@ -233,10 +233,10 @@ def threshold_hits(hits: pd.DataFrame, th: float) -> pd.DataFrame:
     Notes
     -----
     - Energy renormalization ensures that the sum of `E` and `Ec` for the remaining
-      hits equals the sum of `E` and `Ec` in the original `hits` DataFrame.
+      hits equals the sum of `E` and `Ec` in the original DataFrame.
     - If no hits survive the threshold, the returned DataFrame has a single "empty"
       hit corresponding to the first hit's event metadata.
-    - See `apply_threshold` for further details.
+    - See :func:`apply_threshold` for further details.
     """
     if th <= 0: return hits
     return (hits.groupby("Z", as_index=False)

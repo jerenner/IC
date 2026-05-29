@@ -258,9 +258,17 @@ def noise_adc(fee, signal_in_adc):
     """Equivalent Noise of the DAQ added at the output
     of the system.
 
-    input: a signal (in units of adc counts)
-           an instance of FEE class
-    output: a signal with DAQ noise added
+    Parameters
+    ----------
+    fee : FEE
+        Instance of FEE class
+    signal_in_adc : np.ndarray
+        Signal in units of adc counts
+
+    Returns
+    -------
+    np.ndarray
+        Signal with DAQ noise added
     """
     noise_daq = fee.DAQnoise_rms*v_to_adc()
     return signal_in_adc + np.random.normal(0,
@@ -269,9 +277,17 @@ def noise_adc(fee, signal_in_adc):
 
 
 def filter_sfee_lpf(sfe):
-    """
-    input: an instance of class Fee
-    output: buttersworth parameters of the equivalent LPT FEE filter
+    """Buttersworth parameters of the equivalent LPT FEE filter.
+
+    Parameters
+    ----------
+    sfe : Fee
+        Instance of class Fee
+
+    Returns
+    -------
+    tuple
+        Buttersworth parameters (b, a)
     """
     # LPF order 1
     b1, a1 = signal.butter(1, sfe.freq_LPF1d, 'low', analog=False)
@@ -285,10 +301,19 @@ def filter_sfee_lpf(sfe):
 
 
 def filter_fee(feep, ipmt):
-    """
-    input: an instance of class FEE
-           ipmt = pmt number
-    output: buttersworth parameters of the equivalent FEE filter
+    """Buttersworth parameters of the equivalent FEE filter.
+
+    Parameters
+    ----------
+    feep : FEE
+        Instance of class FEE
+    ipmt : int
+        PMT number
+
+    Returns
+    -------
+    tuple
+        Buttersworth parameters (b, a)
     """
 
     # print(feep.freq_LHPFd_pmt)
@@ -343,10 +368,21 @@ def filter_cleaner(feep, ipmt):
 
 def signal_v_fee(feep, signal_i, ipmt):
     """
-    input: signal_i = signal current (i = A)
-           instance of class FEE
-           pmt number
-    output: signal_v (in volts) with effect FEE
+    Apply FEE filter to signal current.
+
+    Parameters
+    ----------
+    signal_i : np.ndarray
+        Signal current (i = A)
+    feep : FEE
+        Instance of class FEE
+    ipmt : int
+        PMT number
+
+    Returns
+    -------
+    np.ndarray
+        Signal voltage (in volts) with effect FEE
 
     ++++++++++++++++++++++++++++++++++++++++++++++++
     +++++++++++ PMT+FEE NOISE ADDED HERE +++++++++++
@@ -369,19 +405,40 @@ def signal_v_fee(feep, signal_i, ipmt):
 
 
 def signal_v_lpf(feep, signal_in):
-    """
-    input: instance of class sfe and a current signal
-    outputs: signal convolved with LPF in voltage
+    """Signal convolved with LPF in voltage.
+
+    Parameters
+    ----------
+    feep : Fee
+        Instance of class Fee
+    signal_in : np.ndarray
+        Current signal
+
+    Returns
+    -------
+    np.ndarray
+        Signal convolved with LPF in voltage
     """
     b, a = filter_sfee_lpf(feep)
     return signal.lfilter(b, a, signal_in)
 
 
 def signal_clean(feep, signal_fee, ipmt):
-    """
-    input: signal_fee = adc, convoluted
-           instance of class FEE
-    output: signal_c cleaning filter passed
+    """Signal through cleaning filter.
+
+    Parameters
+    ----------
+    signal_fee : np.ndarray
+        ADC signal, convoluted
+    feep : FEE
+        Instance of class FEE
+    ipmt : int
+        PMT number
+
+    Returns
+    -------
+    np.ndarray
+        Signal with cleaning filter passed
 
     ++++++++++++++++++++++++++++++++++++++++++++++++
     +++++++++++ PMT+FEE NOISE ADDED HERE +++++++++++
@@ -396,7 +453,21 @@ def daq_decimator(f_sample1, f_sample2, signal_in):
     """Downscale the signal vector according to the
     scale defined by f_sample1 (1 GHZ) and
     f_sample2 (40 Mhz).
-    Includes anti-aliasing filter
+    Includes anti-aliasing filter.
+
+    Parameters
+    ----------
+    f_sample1 : float
+        Input sample frequency (1 GHz)
+    f_sample2 : float
+        Output sample frequency (40 MHz)
+    signal_in : np.ndarray
+        Input signal
+
+    Returns
+    -------
+    np.ndarray
+        Downscaled signal
     """
 
     ## The default 30 point FIR filter with Hamming window of order

@@ -33,15 +33,30 @@ class WaveformPmt(NamedTuple):
 
 
 def square_waveform(wp : WfmPar) -> np.ndarray:
+    """Generate a trapezoidal S2-like waveform with noise.
+
+    Parameters
+    ----------
+    wp : WfmPar
+        Waveform parameters (total length, pre-signal time, rise time, flat time, noise, charge).
+
+    Returns
+    -------
+    np.ndarray
+        1-D array of waveform samples with trapezoidal signal and Gaussian noise.
+    """
     t_s2  = 2 * wp.t_rise_s2 + wp.t_flat_s2
     t_pos = wp.t_tot - wp.t_pre - t_s2
     assert t_s2 + wp.t_pre < wp.t_tot
 
     def wf_noise(length : int) -> np.ndarray:
+        """Generate Gaussian noise samples."""
         return wp.noise * np.random.randn(length)
 
     def line(x : float, p1 : Point, p2 : Point) -> float:
+        """Evaluate linear interpolation between two points."""
         def coef(p1, p2):
+            """Compute slope and intercept for line through two points."""
             b = (p2.y - p1.y) / (p2.x - p1.x)
             a = (p1.y * p2.x - p2.y * p1.x) / (p2.x - p1.x)
             return a, b
@@ -87,6 +102,18 @@ def square_waveform(wp : WfmPar) -> np.ndarray:
 
 
 def sawteeth_waveform(wfp: WfmPar) -> np.ndarray:
+    """Generate a multi-peak sawtooth waveform for testing.
+
+    Parameters
+    ----------
+    wfp : WfmPar
+        Waveform parameters defining timing and amplitude.
+
+    Returns
+    -------
+    np.ndarray
+        1-D array of concatenated linear ramps forming three trapezoidal peaks.
+    """
     t_tot     = wfp.t_tot
     t_pre     = wfp.t_pre
     t_rise_s2 = wfp.t_rise_s2
@@ -109,6 +136,20 @@ def sawteeth_waveform(wfp: WfmPar) -> np.ndarray:
 
 
 def simulate_pmt_response(fee : FEE, wf : np.ndarray) -> WaveformPmt:
+    """Simulate PMT response by processing a waveform through FEE and decimation.
+
+    Parameters
+    ----------
+    fee : FEE
+        Front-end electronics configuration object.
+    wf : np.ndarray
+        Input waveform in photoelectrons.
+
+    Returns
+    -------
+    WaveformPmt
+        Named tuple with (blr, fee) waveform arrays in ADC counts.
+    """
     spe        = FE.SPE()                                           # FEE, with noise PMT
     signal_i   = FE.spe_pulse_from_vector(spe, wf)                  # signal_i in current units
     signal_d   = FE.daq_decimator(FE.f_mc, FE.f_sample, signal_i)   # Decimate (DAQ decimation)
@@ -170,4 +211,18 @@ def deconv_simple(wfm, coef):
 
 
 def deconv_pmts(wfms, coef):
+    """Apply simple deconvolution to a batch of PMT waveforms.
+
+    Parameters
+    ----------
+    wfms : array-like
+        2-D array of waveforms (nsensors, nsamples).
+    coef : float
+        Deconvolution coefficient.
+
+    Returns
+    -------
+    np.ndarray
+        Deconvolved waveforms with the same shape as input.
+    """
     return np.array([deconv_simple(wfm, coef) for wfm in wfms])

@@ -38,13 +38,48 @@ def suppress_negative_energy_contribution(xs, ys):
 
 
 def binned_gaussian_spectrum(centroid, sigma, integral, bins):
+    """Generate a binned Gaussian spectrum by random sampling.
+
+    Draws samples from a Gaussian distribution and histograms them.
+
+    Parameters
+    ----------
+    centroid : float
+        Mean of the Gaussian distribution.
+    sigma : float
+        Standard deviation of the Gaussian distribution.
+    integral : int
+        Number of samples to draw.
+    bins : np.ndarray
+        Histogram bin edges.
+
+    Returns
+    -------
+    np.ndarray
+        Histogram counts per bin.
+    """
     samples     = np.random.normal(centroid, sigma, size=integral)
     spectrum, _ = np.histogram(samples, bins)
     return spectrum
 
 
-# TODO: IMPROVE THIS BOTCHED JOB!!!
 def set_n_gaussians(function):
+    """Decorator that stores the number of Gaussians on the wrapped function.
+
+    The wrapped function should return a tuple ``(result, n_gaussians)``.
+    The decorator sets ``function.n_gaussians`` to the second element and
+    returns only the first.
+
+    Parameters
+    ----------
+    function : Callable
+        Function returning ``(result, n_gaussians)``.
+
+    Returns
+    -------
+    Callable
+        Wrapped function with ``n_gaussians`` attribute.
+    """
     @wraps(function)
     def _function(*args, **kwargs):
         result,   n_gaussians = function(*args, **kwargs)

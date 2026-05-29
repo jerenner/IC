@@ -60,7 +60,7 @@ def generate_satellite_mask(im_deconv          : np.ndarray,
                             e_cut              : float,
                             cut_type           : Optional[CutType]=CutType.abs) -> np.ndarray:
     '''
-    An adaptation to the scikit-image (v0.24.0) function [1], identifies
+    An adaptation to the scikit-image (v0.24.0) function [SKI]_, identifies
     satellite energy depositions within deconvolution image by size
     and proximity to other depositions.
 
@@ -89,7 +89,7 @@ def generate_satellite_mask(im_deconv          : np.ndarray,
 
     References
     ----------
-    .. [1] https://github.com/scikit-image/scikit-image/blob/main/skimage/morphology/misc.py#L59-L151
+    .. [SKI] https://github.com/scikit-image/scikit-image/blob/main/skimage/morphology/misc.py#L59-L151
     '''
     if cut_type is CutType.rel:
         im_deconv = im_deconv / im_deconv.max()
@@ -435,8 +435,9 @@ def richardson_lucy(image, psf, satellite_start_iter, satellite_max_size, e_cut,
 
     Returns
     -------
-    im_deconv           : ndarray
+    im_deconv : ndarray
        The deconvolved image.
+
     Examples
     --------
     >>> from skimage import color, data, restoration
@@ -446,9 +447,10 @@ def richardson_lucy(image, psf, satellite_start_iter, satellite_max_size, e_cut,
     >>> camera = convolve2d(camera, psf, 'same')
     >>> camera += 0.1 * camera.std() * np.random.standard_normal(camera.shape)
     >>> deconvolved = restoration.richardson_lucy(camera, psf, 5)
+
     References
     ----------
-    .. [1] https://en.wikipedia.org/wiki/Richardson%E2%80%93Lucy_deconvolution
+    Richardson-Lucy deconvolution: https://en.wikipedia.org/wiki/Richardson%E2%80%93Lucy_deconvolution
     """
     # compute the times for direct convolution and the fft method. The fft is of
     # complexity O(N log(N)) for each dimension and the direct method does

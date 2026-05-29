@@ -5,7 +5,9 @@
 From Detector Simulation. This city reads energy deposits (hits) and simulates
 S1 and S2 signals. This is accomplished using light tables to compute the signal
 generated in the sensors. The input of this city is nexus output containing hits.
+
 This city outputs:
+
     - pmtrd : PMT  waveforms
     - sipmrd: SIPM waveforms
     - MC  info
@@ -52,6 +54,7 @@ def filter_hits_after_max_time(max_time : float):
     (hits at times larger that max_time configuration parameter)
     """
     def select_hits(x, y, z, energy, time, label, event_number):
+        """Filter out hits exceeding max_time relative to earliest hit."""
         sel = ((time - min(time)) < max_time)
         if sel.all(): return x, y, z, energy, time, label
         else:
@@ -74,7 +77,7 @@ def hits_selector(active_only: bool=True):
             function that select the hits depending on :active_only: parameter
     """
     def select_hits(x, y, z, energy, time, label, name, name_id):
-
+        """Select hits by volume label (ACTIVE only or ACTIVE+BUFFER)."""
         if label.dtype == np.int32:
             active = name_id[name == "ACTIVE"][0]
             buff   = name_id[name == "BUFFER"][0]
@@ -104,6 +107,7 @@ def ielectron_simulator(*, wi: float, fano_factor: float, lifetime: float,
             function that returns the positions emission times and number of photons at the EL
     """
     def simulate_ielectrons(x, y, z, time, energy):
+        """Simulate electron creation, drift, diffusion, and EL photon generation."""
         nelectrons = generate_ionization_electrons(energy, wi, fano_factor)
         nelectrons = drift_electrons(z, nelectrons, lifetime, drift_velocity)
         dx, dy, dz = diffuse_electrons(x, y, z, nelectrons, transverse_diffusion, longitudinal_diffusion)
@@ -120,6 +124,7 @@ def buffer_times_and_length_getter(pmt_width, sipm_width, el_gap, el_dv, max_len
     """
     max_sensor_bin = max(pmt_width, sipm_width)
     def get_buffer_times_and_length(time, times_ph):
+        """Compute buffer start time and length from hit and photon times."""
         start_time = np.floor(min(time) / max_sensor_bin) * max_sensor_bin
         el_traverse_time = el_gap / el_dv
         end_time   = np.ceil((max(times_ph) + el_traverse_time)/max_sensor_bin) * max_sensor_bin
@@ -134,6 +139,7 @@ def s2_waveform_creator(sns_bin_width, LT, el_drift_velocity):
     See description of the refered function for more details.
     """
     def create_s2_waveform(xs, ys, ts, phs, tmin, buffer_length):
+        """Create S2 waveforms with Poisson fluctuations from photon data."""
         waveforms = create_wfs(xs, ys, ts, phs, LT, el_drift_velocity, sns_bin_width, buffer_length, tmin)
         return np.random.poisson(waveforms)
     return create_s2_waveform
@@ -144,6 +150,7 @@ def bin_edges_getter(pmt_width, sipm_width):
     Auxiliar function that returns the waveform bin edges
     """
     def get_bin_edges(pmt_wfs, sipm_wfs):
+        """Compute time bin edges for PMT and SiPM waveforms."""
         pmt_bins  = np.arange(0, pmt_wfs .shape[1]) * pmt_width
         sipm_bins = np.arange(0, sipm_wfs.shape[1]) * sipm_width
         return pmt_bins, sipm_bins
@@ -151,23 +158,56 @@ def bin_edges_getter(pmt_width, sipm_width):
 
 
 @city
-def detsim( *
-          , files_in           : OneOrManyFiles
-          , file_out           : str
-          , event_range        : EventRangeType
-          , print_mod          : int
-          , compression        : str
-          , detector_db        : str
-          , run_number         : int
-          , s1_lighttable      : str
-          , s2_lighttable      : str
-          , sipm_psf           : str
-          , buffer_params      : dict
-          , physics_params     : dict
-          , rate               : float
-          , data_mc_ratio_pmt  : float
-          , data_mc_ratio_sipm : float
-          ):
+def detsim(*,
+           files_in           : OneOrManyFiles,
+           file_out           : str,
+           event_range        : EventRangeType,
+           print_mod          : int,
+           compression        : str,
+           detector_db        : str,
+           run_number         : int,
+           s1_lighttable      : str,
+           s2_lighttable      : str,
+           sipm_psf           : str,
+           buffer_params      : dict,
+           physics_params     : dict,
+           rate               : float,
+           data_mc_ratio_pmt  : float,
+           data_mc_ratio_sipm : float):
+    """Simulate S1 and S2 sensor signals from MC energy deposits.
+
+    Reads MC hits, simulates electron drift/diffusion, applies light tables,
+    and produces PMT and SiPM waveforms with buffer organization.
+
+    Parameters
+    ----------
+    files_in : OneOrManyFiles
+        Input MC files containing hit information.
+    file_out : str
+        Output file path.
+    event_range : EventRangeType
+        Events to process.
+    print_mod : int
+        Print frequency.
+    compression : str
+        HDF5 compression filter.
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    s1_lighttable, s2_lighttable : str
+        Paths to S1 and S2 light table files.
+    sipm_psf : str
+        Path to SiPM PSF file.
+    buffer_params : dict
+        Buffer configuration (length, widths, trigger, etc.).
+    physics_params : dict
+        Physics parameters (drift velocity, diffusion, gain, etc.).
+    rate : float
+        Event rate for timestamp generation.
+    data_mc_ratio_pmt, data_mc_ratio_sipm : float
+        Data/MC scaling ratios for PMT and SiPM light tables.
+    """
 
     buffer_params_  = buffer_params .copy()
     physics_params_ = physics_params.copy()

@@ -13,13 +13,41 @@ from ..types.symbols import DarkModel
 
 
 def normalize_distribution(bin_weights : np.array):
+    """Normalize bin weights to sum to 1.
+
+    Parameters
+    ----------
+    bin_weights : np.array
+        Raw bin weights.
+
+    Returns
+    -------
+    np.array
+        Normalized weights, or unchanged if sum is zero.
+    """
     weight_sum = np.sum(bin_weights)
     return bin_weights / weight_sum if weight_sum else bin_weights
 
 
 def sample_discrete_distribution(bin_centres : np.array,
-                                 bin_weights : np.array,
-                                 size : int = 1) -> np.array:
+                                  bin_weights : np.array,
+                                  size : int = 1) -> np.array:
+    """Sample values from a discrete distribution defined by bin centres and weights.
+
+    Parameters
+    ----------
+    bin_centres : np.array
+        Centres of the distribution bins.
+    bin_weights : np.array
+        Normalized weights (probabilities) for each bin.
+    size : int
+        Number of samples to draw.
+
+    Returns
+    -------
+    np.array
+        Array of sampled values.
+    """
     if not bin_weights.any():
         return np.zeros(size)
     return np.random.choice(bin_centres,
@@ -28,20 +56,64 @@ def sample_discrete_distribution(bin_centres : np.array,
 
 
 def uniform_smearing(max_deviation : np.array,
-                     size : Tuple = 1) -> np.array:
+                      size : Tuple = 1) -> np.array:
+    """Generate uniform random smearing within +/- max_deviation.
+
+    Parameters
+    ----------
+    max_deviation : np.array
+        Maximum deviation magnitude for uniform smearing.
+    size : Tuple
+        Output array shape.
+
+    Returns
+    -------
+    np.array
+        Array of uniformly smeared values.
+    """
     return np.random.uniform(-max_deviation,
                              +max_deviation,
                              size = size)
 
 
 def inverse_cdf_index(y : np.array,
-                      percentile : float) -> int:
+                       percentile : float) -> int:
+    """Find the index where a cumulative array first exceeds a given percentile.
+
+    Parameters
+    ----------
+    y : np.array
+        Cumulative probability array (monotonically increasing).
+    percentile : float
+        Target percentile threshold.
+
+    Returns
+    -------
+    int
+        Index of the first element >= percentile.
+    """
     return np.argwhere(y >= percentile)[0,0]
 
 
 def inverse_cdf(x : np.array,
-                y : np.array,
-                percentile : float) -> float:
+                 y : np.array,
+                 percentile : float) -> float:
+    """Compute the inverse cumulative distribution function at a given percentile.
+
+    Parameters
+    ----------
+    x : np.array
+        Values on the x-axis (e.g. bin centres).
+    y : np.array
+        Cumulative probability array corresponding to x.
+    percentile : float
+        Target percentile threshold.
+
+    Returns
+    -------
+    float
+        x value at which the CDF reaches the given percentile, or inf if y is empty.
+    """
     if not y.any():
         return np.inf
     return x[inverse_cdf_index(y, percentile)]
@@ -128,7 +200,7 @@ class NoiseSampler:
             Contains the the bins centers in pes.
         dx : float
             Half of the bin size.
-        probs: numpy.ndarray
+        probs : numpy.ndarray
             Matrix holding the noise probabilities for each sensor.
             The sensors are arranged along the first dimension, while
             the other axis corresponds to the energy bins.
@@ -257,14 +329,15 @@ class NoiseSampler:
         """
         Calculate the no light PDFs for a given
         sample width.
+
         Parameters
-        __________
+        ----------
         sample_width : int
             Width in microseconds of the sample for which
             PDFs to be calculated.
 
         Returns
-        _______
+        -------
         PDFs : numpy.ndarray shape (nsipm, xbins + padding)
             Probabilities for each xbin recalculated for
             the requested sample_width and padded for symmetry

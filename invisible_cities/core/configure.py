@@ -34,6 +34,20 @@ from typing import Any
 
 
 def event_range(string):
+    """Parse an event range string for CLI argument.
+
+    Accepts an integer or the symbols ``all`` / ``last``.
+
+    Parameters
+    ----------
+    string : str
+        Input string from CLI.
+
+    Returns
+    -------
+    int or EventRange
+        Parsed integer or ``EventRange`` enum member.
+    """
     try:
         return int(string)
     except ValueError:
@@ -70,6 +84,18 @@ uninteresting_options = '''hide_config no_overrides no_files full_files print_co
 
 
 def configure(input_options=sys.argv):
+    """Parse CLI arguments and config file, returning a Configuration object.
+
+    Parameters
+    ----------
+    input_options : list of str
+        Program arguments, defaults to ``sys.argv``.
+
+    Returns
+    -------
+    Configuration
+        Merged configuration from config file and CLI overrides.
+    """
     program, *args = input_options
 
     CLI = parser.parse_args(args)
@@ -82,6 +108,21 @@ def configure(input_options=sys.argv):
 
 
 def read_config_file(file_name):
+    """Read and parse a configuration file with includes.
+
+    Expands environment variables in the filename and recursively
+    processes any included files.
+
+    Parameters
+    ----------
+    file_name : str
+        Path to the top-level config file.
+
+    Returns
+    -------
+    Configuration
+        Parsed configuration with all included settings.
+    """
     full_file_name             = os.path.expandvars(file_name)
     read_top_level_config_file = make_config_file_reader()
     whole_config               = read_top_level_config_file(full_file_name)
@@ -118,6 +159,23 @@ def make_config_file_reader():
 
 
 def type_check(value : Any, type_expected : Any):
+    """Check whether a value matches an expected type annotation.
+
+    Handles Union, Optional, Sequence, tuple, Mapping, and basic types
+    with NumPy dtype awareness.
+
+    Parameters
+    ----------
+    value : Any
+        Value to check.
+    type_expected : Any
+        Expected type annotation.
+
+    Returns
+    -------
+    bool
+        True if the value matches the expected type.
+    """
     type_got = type(value)
     # SPECIAL CASES
     if type_expected is Sequence and type_got is np.ndarray: return True

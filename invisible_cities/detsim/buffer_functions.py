@@ -11,6 +11,20 @@ from .. reco.peak_functions import                 split_in_peaks
 
 
 def weighted_histogram(data: pd.DataFrame, bins: np.ndarray) -> np.ndarray:
+    """Compute a histogram weighted by charge values.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        DataFrame with ``time`` and ``charge`` columns.
+    bins : np.ndarray
+        Bin edges for the histogram.
+
+    Returns
+    -------
+    np.ndarray
+        Histogram counts weighted by charge.
+    """
     return np.histogram(data.time, weights=data.charge, bins=bins)[0]
 
 

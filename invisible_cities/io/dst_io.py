@@ -47,6 +47,26 @@ def load_dst(filename, group, node, evt_list=None, ignore_errors=False):
 
 
 def load_dsts(dst_list, group, node, evt_list=None, ignore_errors=False):
+    """Load DST data from multiple HDF5 files and concatenate.
+
+    Parameters
+    ----------
+    dst_list : list of str
+        Paths to HDF5 files.
+    group : str
+        HDF5 group name.
+    node : str
+        HDF5 node name within the group.
+    evt_list : list of int or None
+        Event numbers to load, or None for all.
+    ignore_errors : bool
+        If True, skip files that fail to load.
+
+    Returns
+    -------
+    pd.DataFrame
+        Concatenated DataFrame from all files.
+    """
     dsts = [load_dst(filename, group, node, evt_list, ignore_errors) for filename in dst_list]
     return pd.concat(dsts, ignore_index=True)
 
@@ -86,8 +106,10 @@ def df_writer(h5out              : tb.file.File ,
               *,
               compression        : Optional[Union[str, NoneType]] = None,
               ) -> None:
-    """ The function writes a dataframe to open pytables file.
-    Parameters:
+    """The function writes a dataframe to open pytables file.
+
+    Parameters
+    ----------
     h5out              : open pytable file for writing
     df                 : DataFrame to be written
     group_name         : group name where table is to be saved)

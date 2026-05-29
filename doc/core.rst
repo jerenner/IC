@@ -1,54 +1,115 @@
-Core modules
+Core Modules
 ============
 
-A major revision of the core modules has been conducted. This includes
-cleaning up, eliminating many obsolete functions, as well as
-re-organizing functions, across modules.
+The ``invisible_cities.core`` package provides shared utility functions
+used across all cities and submodules. These are the building blocks
+that every other part of IC depends on.
 
-- **core_functions.py**: general purpose functions. It has been
-  cleaned up, and a simple test suite has been added. There is also a
-  doc notebook (which is not included in this commit, waiting for
-  policy on notebooks and docs to be fully agreed).
+Configuration System
+--------------------
 
-- **core_functions_performance.py**: a module with a simple example
-  case of performance of python vs Cython for a particular example.
+The :mod:`~invisible_cities.core.configure` module powers the city
+configuration system described in :doc:`getting_started`. Key features:
 
-- **mpl_functions.py**: general purpose plotting functions. No tests
-  are relevant here, but the plotting functions are exercised in the
-  documentation notebooks (diomira, irene) which are ready to be
-  committed.
+- **Config file parsing** — ``.conf`` files are plain Python with
+  environment variable expansion and Python expressions
+- **CLI overrides** — command-line flags override config file values
+- **Type checking** — config values are validated against city function
+  type annotations on first run
+- **Include hierarchy** — configs can include other configs via the
+  built-in ``include()`` function
 
-- **system_of_units.py**: definition of system of units. Extensively
-  tried and tested, stable.
+.. code-block:: python
 
-- **random_sampling.py**: sampler of SiPM pdf
-  functions. Diomira-notebook shows that it behaves as expected but a
-  test would be nice (Gonzalo Martinez, pending).
+   from invisible_cities.core.configure import configure
+   options = configure(sys.argv)
+   # Use options.files_in, options.file_out, etc.
 
-- **log_config.py**: configures the logger. Not used currently,
-  possible candidate for deletion.
+Units
+-----
 
-- **configure.py**: utility used for configuration, works as expected,
-  stable.
+The :mod:`~invisible_cities.core.system_of_units` module provides a
+coherent system of units derived from Geant4, using the HEP convention
+where the base units are millimeters, nanoseconds, MeV, and positron
+charge. Units are available as constants in config files and Python code:
 
-- **sensor_functions.py**: collects functions that manipulate
-  sensors. Most of them exercised in notebooks. A test could be added.
+.. code-block:: python
 
-- **tbl_functions.py**: utility for pYtables manipulation.
+   from invisible_cities.core import system_of_units as units
+   distance = 25 * units.centimeter
+   energy   = 2039 * units.keV
 
-- **wfm_functions.py**: waveform manipulation. There is a simple test
-  suite (can be enlarged).
+See :doc:`api/core` for the full list of available units.
 
-- **wfm_to_df_functions.py**: collection of functions where wmf are
-  transformed to data frames for manipulation. Not used at the
-  moment. Possible candidate for deletion.
+Utility Functions
+-----------------
 
-- **mctrk_functions.py**: for manipulation of MC "true" tracks. Not
-  being used at the moment (reconstruction does not use "true"
-  variables) but eventually useful.
+The :mod:`~invisible_cities.core.core_functions` module provides general
+purpose functions used throughout the framework:
 
-- **peak_functions.py**: to be revised in next cycle, associated to
-  Irene.
+- **Array operations** — flattening, binning, range selection, vector transformations
+- **Math helpers** — relative difference with configurable normalization, weighted mean/std
+- **Timing** — ``@timefunc`` decorator for profiling functions
+- **Dict/list utilities** — mapping and filtering over collections
 
-- **pmaps_functions.py**: to be revised in next cycle, associated to
-  Irene.
+See :doc:`api/core` for the complete function list.
+
+Fitting and Statistics
+----------------------
+
+The :mod:`~invisible_cities.core.fit_functions` module provides tools for
+curve fitting, including parameter fixing, covariance analysis, and
+fit function management.
+
+The :mod:`~invisible_cities.core.stat_functions` module provides
+statistical helpers, primarily Poisson probability and uncertainty
+calculations.
+
+Random Sampling
+---------------
+
+The :mod:`~invisible_cities.core.random_sampling` module provides
+samplers for SiPM probability distributions, used by simulation
+cities like Diomira. Includes discrete distribution sampling,
+uniform smearing, inverse CDF methods, and PDF padding.
+
+HDF5 / PyTables Utilities
+-------------------------
+
+The :mod:`~invisible_cities.core.tbl_functions` module provides helpers
+for working with HDF5 files via PyTables:
+
+- **Compression filters** — ``filters("ZLIB4")``, ``filters("BLOSC5")``, etc.
+- **Table reading** — utilities for extracting vectors and tables from data files
+
+Exceptions
+----------
+
+The :mod:`~invisible_cities.core.exceptions` module defines the IC
+exception hierarchy. All IC-specific exceptions inherit from
+``ICException``. Key exceptions include:
+
+- ``NoInputFiles``, ``InvalidInputFileStructure`` — input validation
+- ``NoHits``, ``NoVoxels`` — missing reconstructed objects
+- ``XYRecoFail`` and subclasses — position reconstruction failures
+- ``SensorIDMismatch``, ``TableMismatch`` — data consistency errors
+
+Logging
+-------
+
+The :mod:`~invisible_cities.core.log_config` module configures the
+application logger. Verbosity can be controlled via the ``-v`` flag
+on the command line.
+
+Testing Utilities
+-----------------
+
+The :mod:`~invisible_cities.core.testing_utils` module provides helpers
+for writing tests, including Hypothesis strategies for float arrays,
+equality assertions for IC data structures (PMAPs, Hits, Clusters),
+and PyTables table comparison utilities.
+
+API Reference
+-------------
+
+For the complete API documentation of all core modules, see :doc:`api/core`.

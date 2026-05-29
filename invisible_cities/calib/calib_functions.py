@@ -23,6 +23,7 @@ def bin_waveforms(waveforms, bins):
     data and adds it to the file level bin array.
     """
     def bin_waveform(wf):
+        """Bin a single waveform into histogram counts."""
         return np.histogram(wf, bins)[0]
     return np.apply_along_axis(bin_waveform, 1, waveforms)
 
@@ -119,6 +120,28 @@ def filter_limits(limits, buffer_length):
 
 
 def valid_integral_limits(sample_width, n_integrals, integral_start, integral_width, period, buffer_length):
+    """Compute correlated and anticorrelated integral limits, filtered to buffer bounds.
+
+    Parameters
+    ----------
+    sample_width : float
+        Sample width for sensors under study.
+    n_integrals : int
+        Number of integrals per buffer.
+    integral_start : float
+        Start in microseconds of first integral.
+    integral_width : float
+        Width in microseconds of integrals.
+    period : float
+        Period in microseconds between integrals.
+    buffer_length : int
+        Number of waveform samples.
+
+    Returns
+    -------
+    tuple of np.ndarray
+        Filtered correlated and anticorrelated limits.
+    """
     corr, anti = integral_limits(sample_width, n_integrals, integral_start, integral_width, period)
     return (filter_limits(corr, buffer_length),
             filter_limits(anti, buffer_length))
@@ -126,6 +149,15 @@ def valid_integral_limits(sample_width, n_integrals, integral_start, integral_wi
 
 def copy_sensor_table(h5in_name : str,
                       h5out     : tb.file.File):
+    """Copy the Sensors group from an input HDF5 file to the output file.
+
+    Parameters
+    ----------
+    h5in_name : str
+        Path to the input HDF5 file containing the Sensors node.
+    h5out : tb.file.File
+        Output HDF5 file handle.
+    """
 
     with tb.open_file(h5in_name) as dIn:
         try:
@@ -143,6 +175,7 @@ def dark_scaler(dark_spectrum):
     A function to scale dark spectrum with mu value.
     """
     def scaled_spectrum(x, mu):
+        """Scale dark spectrum by Poisson factor for given mu."""
         return np.exp(-mu) * dark_spectrum
     return scaled_spectrum
 
@@ -228,6 +261,22 @@ def pedestal_values(ped_vals, lim_ped, ped_errs):
 
 
 def compute_seeds_from_spectrum(sens_values, bins, ped_vals):
+    """Compute gain and gain-sigma seeds from a spectrum using peak finding and Gaussian fit.
+
+    Parameters
+    ----------
+    sens_values : SensorParams
+        Object containing spectra, peak range, bin limits, half-peak width, and p1pe seed.
+    bins : np.array
+        Bin edges for the spectrum.
+    ped_vals : np.array
+        Pedestal fit parameters.
+
+    Returns
+    -------
+    tuple of float
+        (gain_seed, gain_sigma_seed) estimated from the spectrum.
+    """
 
     spectra = sens_values.spectra
     p_range = sens_values.peak_range

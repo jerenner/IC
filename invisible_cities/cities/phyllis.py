@@ -84,6 +84,46 @@ def phyllis( files_in         : OneOrManyFiles
            , integrals_period : float
            , n_maw            : Optional[int] = 100
            ):
+    """Process PMT waveforms: deconvolve, integrate, and histogram.
+
+    Applies one of three processing modes (deconvolution with/without MAW,
+    or mode subtraction), then bins waveforms into histograms for light
+    and dark pedestal spectra.
+
+    Parameters
+    ----------
+    files_in : str or list of str
+        Input file paths.
+    file_out : str
+        Output HDF5 file path.
+    compression : str
+        HDF5 compression mode.
+    event_range : tuple
+        Start and stop event indices.
+    print_mod : int
+        Print progress every N events.
+    detector_db : str
+        Detector database name.
+    run_number : int
+        Run number.
+    proc_mode : PMTCalibMode
+        Processing mode (gain, gain_maw, gain_nodeconv).
+    n_baseline : int
+        Number of baseline samples.
+    min_bin, max_bin, bin_width : float
+        Histogram binning parameters.
+    number_integrals : int
+        Number of waveform integrals.
+    integral_start, integral_width, integrals_period : float
+        Integration window parameters.
+    n_maw : int, optional
+        Moving average window width for MAW subtraction.
+
+    Returns
+    -------
+    Namespace
+        Results with event count, SPE histogram, and dark histogram.
+    """
     if   proc_mode is PMTCalibMode.gain         : proc = pmt_deconvolver    (detector_db, run_number, n_baseline       )
     elif proc_mode is PMTCalibMode.gain_maw     : proc = pmt_deconvolver_maw(detector_db, run_number, n_baseline, n_maw)
     elif proc_mode is PMTCalibMode.gain_nodeconv: proc = mode_subtractor    (detector_db, run_number)
@@ -146,11 +186,45 @@ def phyllis( files_in         : OneOrManyFiles
 
 
 def pmt_deconvolver(detector_db, run_number, n_baseline):
+    """Return a PMT deconvolution function for the given run.
+
+    Parameters
+    ----------
+    detector_db : str
+        Detector database name.
+    run_number : int
+        Run number.
+    n_baseline : int
+        Number of baseline samples.
+
+    Returns
+    -------
+    callable
+        Function that deconvolves raw waveforms.
+    """
     deconvolute = deconv_pmt(detector_db, run_number, n_baseline)
     return deconvolute
 
 
 def pmt_deconvolver_maw(detector_db, run_number, n_baseline, n_maw):
+    """Return a PMT deconvolution function with moving average window subtraction.
+
+    Parameters
+    ----------
+    detector_db : str
+        Detector database name.
+    run_number : int
+        Run number.
+    n_baseline : int
+        Number of baseline samples.
+    n_maw : int
+        Moving average window width.
+
+    Returns
+    -------
+    callable
+        Function that deconvolves waveforms then subtracts MAW pedestal.
+    """
     deconvolute = pmt_deconvolver(detector_db, run_number, n_baseline)
     def deconv_pmt_maw(rwf):
         cwf = deconvolute(rwf)
@@ -159,6 +233,20 @@ def pmt_deconvolver_maw(detector_db, run_number, n_baseline, n_maw):
 
 
 def mode_subtractor(detector_db, run_number):
+    """Return a function that subtracts the mode from active PMT waveforms.
+
+    Parameters
+    ----------
+    detector_db : str
+        Detector database name.
+    run_number : int
+        Run number.
+
+    Returns
+    -------
+    callable
+        Function that subtracts mode pedestal from active PMTs only.
+    """
     active = load_db.DataPMT(detector_db, run_number).Active.values
     active = np.nonzero(active)[0].tolist()
     def subtract_mode(rwf):

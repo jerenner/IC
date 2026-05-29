@@ -11,12 +11,47 @@ from ..types.symbols       import               RebinMethod
 
 
 def get_even_slices(bins : int, stride : int) -> List[slice]:
+    """Create evenly-spaced slices for rebinning.
+
+    Divides a range of ``bins`` into contiguous slices of width ``stride``.
+
+    Parameters
+    ----------
+    bins : int
+        Total number of bins.
+    stride : int
+        Number of bins per slice.
+
+    Returns
+    -------
+    List[slice]
+        List of slice objects covering the full range.
+    """
     new_bins = int(np.ceil(bins / stride))
     return [slice(stride * i, stride * (i + 1)) for i in range(new_bins)]
 
 
 def get_threshold_slices(pmt_sum   : np.array,
-                         threshold :    float) -> List[slice]:
+                          threshold :    float) -> List[slice]:
+    """Create slices where cumulative PMT charge exceeds a threshold.
+
+    Splits the PMT array into contiguous regions such that each region
+    (except possibly the last) accumulates at least ``threshold`` charge.
+    A trailing region with charge below the threshold is merged into the
+    preceding slice.
+
+    Parameters
+    ----------
+    pmt_sum : np.array
+        Array of PMT charge values.
+    threshold : float
+        Minimum cumulative charge per slice.
+
+    Returns
+    -------
+    List[slice]
+        List of slice objects defining the regions.
+    """
     slices     = []
     last_index = 0
     last_sum   = 0
@@ -71,7 +106,23 @@ def rebin_peak(peak : _Peak, rebin_factor : Union[int, float],
 
 
 def rebin_peak_to_slices(peak : _Peak, slices : List[slice]) -> _Peak:
+    """Rebin a peak using custom slices.
 
+    Rebins PMT and SiPM waveforms according to the given slices,
+    preserving the peak type (S1 or S2).
+
+    Parameters
+    ----------
+    peak : _Peak
+        Input peak (S1 or S2).
+    slices : List[slice]
+        Slice objects defining how to rebin the waveforms.
+
+    Returns
+    -------
+    _Peak
+        Rebinned peak of the same type as the input.
+    """
     (times,
      widths,
      pmt_wfs) = rebin_times_and_waveforms(peak.times,

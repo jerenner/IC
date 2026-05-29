@@ -18,6 +18,7 @@ def normalization(krmap     : pd.DataFrame,
     """
     Given a input krypton map, returns a reference value as a function of the chosen method
     which is later used for normalization.
+
     Parameters
     ----------
     krmap : pd.DataFrame
@@ -27,9 +28,11 @@ def normalization(krmap     : pd.DataFrame,
     xy_params : dict
       Limits in x and y that define the region inside of which the normalization
       will be performed.
+
     Returns
     -------
-    Normalization value using the chosen method.
+    float
+      Normalization value using the chosen method.
     """
     krmap = krmap.dropna(subset=['mu'])
     anode = krmap[krmap.k == 0]
@@ -93,14 +96,15 @@ def apply_3Dmap(krmap       : pd.DataFrame,
     Applies a given krypton map normalized using the chosen normalization method
     to dt, x, y, E data from dataframes to get the corrected energy.
 
-    -The corrected energy is computed using the expression
+    The corrected energy is computed using the expression
 
-         E = S_2/S_0(x,y,z) E_0
+        E = S_2/S_0(x,y,z) E_0
 
-         where S2 is the uncorrected S2 signal in pe,
-         E_0 = 41.55 keV is the known energy deposited by a 83mKr decay,
-         and S_0(x,y,z) is the average energy of 83mKr events
-         from the corresponding voxel of the reference energy map.
+        where S2 is the uncorrected S2 signal in pe,
+        E_0 = 41.55 keV is the known energy deposited by a 83mKr decay,
+        and S_0(x,y,z) is the average energy of 83mKr events
+        from the corresponding voxel of the reference energy map.
+
     Parameters
     ----------
     krmap : pd.DataFrame
@@ -152,6 +156,7 @@ def apply_correctionmap_inplace_kdst(kdst        : pd.DataFrame,
     """
     Applies a given krypton map using apply_3Dmap to get as an output the same input
     kdst with a column for the corrected energy.
+
     Parameters
     ----------
     kdst : pd.DataFrame
@@ -168,6 +173,7 @@ def apply_correctionmap_inplace_kdst(kdst        : pd.DataFrame,
       Name of the column where the corrected energy will be in the new dataframe.
     keV : bool
       Boolean to decide whether the correction factor is applied in keV or pe
+
     Returns
     -------
     kdst : pd.DataFrame
@@ -191,6 +197,7 @@ def apply_correctionmap_inplace_hits(hdst        : pd.DataFrame,
     """
     Applies a given krypton map (per hit) using apply_3Dmap_hits to get as an output the same input
     hdst with a column for the corrected energy.
+
     Parameters
     ----------
     hdst : pd.DataFrame
@@ -207,6 +214,7 @@ def apply_correctionmap_inplace_hits(hdst        : pd.DataFrame,
       Name of the column where the corrected energy will be in the new dataframe.
     keV : bool
       Boolean to decide whether the correction factor is applied in keV or pe
+
     Returns
     -------
     hdst : pd.DataFrame
@@ -220,6 +228,21 @@ def apply_correctionmap_inplace_hits(hdst        : pd.DataFrame,
     return hdst
 
 def load_map(name : str) -> KryptonMap:
+    """Load a KryptonMap from an HDF5 file.
+
+    Reads the krypton map, time evolution, selection efficiencies, and
+    metadata tables from the given file.
+
+    Parameters
+    ----------
+    name : str
+        Path to the HDF5 file containing the krypton map data.
+
+    Returns
+    -------
+    KryptonMap
+        Container with krmap, t_evol, efficiencies, and metadata DataFrames.
+    """
     krmap      = pd.read_hdf(name, 'krmap/krmap')
     t_evol     = pd.read_hdf(name, 't_evol/t_evol')
     efficiencies = pd.read_hdf(name, 'data/selection_efficiencies')

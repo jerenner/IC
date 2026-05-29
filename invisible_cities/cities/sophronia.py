@@ -17,7 +17,9 @@ is configured to take more than 1 S1. If 0 S1 signals are allowed, the
 first slice of the S2 peak will be taken as the t0 of the
 event. Besides hits, the city also stores the global (x, y) position
 of each S2 signal and produces the same output as Dorothea.
+
 The tasks performed are:
+
  - Classify peaks according to the filter.
  - Filter out events that do not satisfy the selector conditions.
  - Rebin S2 signals.

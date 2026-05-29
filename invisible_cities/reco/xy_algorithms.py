@@ -23,10 +23,11 @@ def threshold_check( pos : np.ndarray # (n, 2)
                    , thr : float) -> Tuple[np.ndarray, np.ndarray]:
     """
     Applies a charge threshold while performing basic checks on the
-    input data. It ensures that
-      - The position and charge arrays are non-empty
-      - The sum of the charge array is not zero
-      - The above hold still after applying the charge threshold
+    input data. It ensures that:
+
+    - The position and charge arrays are non-empty
+    - The sum of the charge array is not zero
+    - The above hold still after applying the charge threshold
 
     Parameters
     ----------

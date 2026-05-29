@@ -7,6 +7,17 @@ from .. core.tbl_functions import filters as tbl_filters
 
 
 def store_trigger(tables, trg_type, trg_channels):
+    """Store trigger type and channels to HDF5 tables.
+
+    Parameters
+    ----------
+    tables : tuple
+        ``(trg_type_table, trg_channels_array)`` from ``_make_tables``.
+    trg_type : int or None
+        Trigger type value, or None to skip.
+    trg_channels : np.ndarray or None
+        Array of triggered sensor channels, or None to skip.
+    """
     trg_type_table, trg_channels_array = tables
 
     if trg_type:
@@ -15,11 +26,29 @@ def store_trigger(tables, trg_type, trg_channels):
         trg_type_row.append()
 
     if trg_channels is not None:
-        new_shape = 1, trg_channels.shape[0] #add event dimension
+        new_shape = 1, trg_channels.shape[0]
         trg_channels_array.append(trg_channels.reshape(new_shape))
 
 
 def trigger_writer(file, n_sensors, compression=None):
+    """Create an HDF5 writer for trigger data.
+
+    Creates tables in the ``Trigger`` group for trigger type and channels.
+
+    Parameters
+    ----------
+    file : tb.File
+        Open HDF5 file.
+    n_sensors : int
+        Number of sensor channels.
+    compression : str, optional
+        Compression mode, passed to ``tbl.filters``.
+
+    Returns
+    -------
+    Callable
+        Function that writes trigger type and channels for an event.
+    """
     tables = _make_tables(file, n_sensors, compression)
     return partial(store_trigger, tables)
 

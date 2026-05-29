@@ -99,8 +99,24 @@ from .. icaros .correction_functions   import    apply_correctionmap_inplace_hit
 
 
 def city(city_function):
+    """Decorator that wraps a city function with file handling, config validation, and post-processing.
+
+    Expands file globs, deduplicates inputs, validates event range, runs the city function,
+    writes configuration, and indexes output tables.
+
+    Parameters
+    ----------
+    city_function : Callable
+        The city processing function to wrap.
+
+    Returns
+    -------
+    Callable
+        Wrapped function that handles I/O setup and teardown.
+    """
     @wraps(city_function)
     def proxy(**kwds):
+        """Proxy that handles file I/O, config validation, and post-processing."""
         conf = Namespace(**kwds)
 
         # TODO: remove these in the config parser itself, before
@@ -242,9 +258,20 @@ def dict_to_string(arg : dict,
     return flat_dict
 
 
-def write_city_configuration( filename : str
-                            , city_name: str
-                            , args     : dict):
+def write_city_configuration(filename : str
+                             , city_name: str
+                             , args     : dict):
+    """Write city configuration parameters to an HDF5 table.
+
+    Parameters
+    ----------
+    filename : str
+        Output HDF5 file path.
+    city_name : str
+        Name of the city, used as the table name.
+    args : dict
+        Flattened configuration parameters.
+    """
     args = dict_to_string(args)
 
     with tb.open_file(filename, "a") as file:
@@ -255,7 +282,16 @@ def write_city_configuration( filename : str
         df_writer(file, df, "config", city_name, f"configuration for {city_name}", str_col_length=300)
 
 
-def copy_cities_configuration( file_in : str, file_out : str):
+def copy_cities_configuration(file_in : str, file_out : str):
+    """Copy all /config tables from an input file to an output file.
+
+    Parameters
+    ----------
+    file_in : str
+        Source HDF5 file path.
+    file_out : str
+        Destination HDF5 file path.
+    """
     with tb.open_file(file_in, "r") as fin:
         if "config" not in fin.root:
             warnings.warn("Input file does not contain /config group", UserWarning)
@@ -275,6 +311,18 @@ def _check_invalid_event_range_spec(er):
 
 
 def event_range(conf):
+    """Parse and validate the event_range configuration parameter.
+
+    Parameters
+    ----------
+    conf : Namespace
+        Configuration object with optional event_range attribute.
+
+    Returns
+    -------
+    tuple
+        Normalized event range as (start, stop) or (None,) for all events.
+    """
     # event_range not specified
     if not hasattr(conf, 'event_range')           : return None, 1
     er = conf.event_range
@@ -290,6 +338,18 @@ def event_range(conf):
 
 
 def print_every(N):
+    """Create a dataflow branch that prints progress every N events.
+
+    Parameters
+    ----------
+    N : int
+        Number of events between progress prints.
+
+    Returns
+    -------
+    Callable
+        Dataflow branch function for periodic printing.
+    """
     counter = count()
     return fl.branch(fl.map  (lambda _: next(counter), args="event_number", out="index"),
                      fl.slice(None, None, N),
@@ -297,8 +357,21 @@ def print_every(N):
 
 
 def print_every_alternative_implementation(N):
+    """Alternative coroutine-based implementation of periodic progress printing.
+
+    Parameters
+    ----------
+    N : int
+        Number of events between progress prints.
+
+    Returns
+    -------
+    Callable
+        Coroutine function for periodic printing.
+    """
     @fl.coroutine
     def print_every_loop(target):
+        """Coroutine that prints progress every N events."""
         with fl.closing(target):
             for i in count():
                 data = yield
@@ -309,6 +382,24 @@ def print_every_alternative_implementation(N):
 
 
 def get_actual_sipm_thr(thr_sipm_type, thr_sipm, detector_db, run_number):
+    """Resolve SiPM threshold value based on threshold type.
+
+    Parameters
+    ----------
+    thr_sipm_type : SiPMThreshold
+        Either 'common' (fixed PE value) or 'individual' (per-SiPM from noise).
+    thr_sipm : float
+        Threshold value in PE or as percentage of noise.
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number for noise sampling.
+
+    Returns
+    -------
+    float or np.array
+        Resolved SiPM threshold(s) in PE.
+    """
     if   thr_sipm_type is SiPMThreshold.common:
         # In this case, the threshold is a value in pes
         sipm_thr = thr_sipm
@@ -328,6 +419,7 @@ def get_actual_sipm_thr(thr_sipm_type, thr_sipm, detector_db, run_number):
 def collect():
     """Return a future/sink pair for collecting streams into a list."""
     def append(l,e):
+        """Append element to accumulator list."""
         l.append(e)
         return l
     return fl.reduce(append, initial=[])()
@@ -389,11 +481,12 @@ def wf_binner(max_buffer: float) -> Callable:
     ----------
     max_buffer : float
                  Maximum event time to be considered in nanoseconds
-    """
+"""
     def bin_sensors(sensors  : pd.DataFrame,
-                    bin_width: float       ,
-                    t_min    : float       ,
-                    t_max    : float       ) -> Tuple[np.ndarray, pd.Series]:
+                     bin_width: float       ,
+                     t_min    : float       ,
+                     t_max    : float       ) -> Tuple[np.ndarray, pd.Series]:
+        """Bin sensor responses into waveform buffers."""
         return bf.bin_sensors(sensors, bin_width, t_min, t_max, max_buffer)
     return bin_sensors
 
@@ -422,6 +515,7 @@ def signal_finder(buffer_len   : float,
     # necessary between candidate triggers.
     stand_off = int(buffer_len / bin_width)
     def find_signal(wfs: pd.Series) -> List[int]:
+        """Find trigger-like signal positions above threshold."""
         return bf.find_signal_start(wfs, bin_threshold, stand_off)
     return find_signal
 
@@ -429,12 +523,33 @@ def signal_finder(buffer_len   : float,
 # TODO: consider caching database
 def deconv_pmt(dbfile, run_number, n_baseline,
                selection=None, pedestal_function=csf.means):
+    """Create a PMT waveform deconvolution function using calibration constants.
+
+    Parameters
+    ----------
+    dbfile : str
+        Detector database identifier.
+    run_number : int
+        Run number for calibration constants.
+    n_baseline : int
+        Number of baseline samples for pedestal estimation.
+    selection : list or None
+        List of active PMT indices. Uses all active PMTs if None.
+    pedestal_function : Callable
+        Function to compute pedestal from baseline samples.
+
+    Returns
+    -------
+    Callable
+        Function that deconvolves raw PMT waveforms.
+    """
     DataPMT    = load_db.DataPMT(dbfile, run_number = run_number)
     pmt_active = np.nonzero(DataPMT.Active.values)[0].tolist() if selection is None else selection
     coeff_c    = DataPMT.coeff_c  .values.astype(np.double)
     coeff_blr  = DataPMT.coeff_blr.values.astype(np.double)
 
     def deconv_pmt(RWF):
+        """Deconvolve raw PMT waveforms using calibration constants."""
         CWF = pedestal_function(RWF[:, :n_baseline]) - RWF
         return np.array(tuple(map(blr.deconvolve_signal, CWF[pmt_active],
                                   coeff_c              , coeff_blr      )))
@@ -442,6 +557,18 @@ def deconv_pmt(dbfile, run_number, n_baseline,
 
 
 def get_run_number(h5in):
+    """Extract the run number from an HDF5 file's Run group.
+
+    Parameters
+    ----------
+    h5in : tb.file.File
+        Open HDF5 file handle.
+
+    Returns
+    -------
+    int
+        Run number from the file metadata.
+    """
     if   "runInfo" in h5in.root.Run: return h5in.root.Run.runInfo[0]['run_number']
     elif "RunInfo" in h5in.root.Run: return h5in.root.Run.RunInfo[0]['run_number']
 
@@ -449,17 +576,57 @@ def get_run_number(h5in):
 
 
 def get_pmt_wfs(h5in, wf_type):
+    """Get PMT waveform dataset from an HDF5 file based on waveform type.
+
+    Parameters
+    ----------
+    h5in : tb.file.File
+        Open HDF5 file handle.
+    wf_type : WfType
+        Waveform type (rwf for raw, mcrd for MC).
+
+    Returns
+    -------
+    tb.Table or tb.EArray
+        PMT waveform dataset.
+    """
     if   wf_type is WfType.rwf : return h5in.root.RD.pmtrwf
     elif wf_type is WfType.mcrd: return h5in.root.   pmtrd
     else                       : raise  TypeError(f"Invalid WfType: {type(wf_type)}")
 
 def get_sipm_wfs(h5in, wf_type):
+    """Get SiPM waveform dataset from an HDF5 file based on waveform type.
+
+    Parameters
+    ----------
+    h5in : tb.file.File
+        Open HDF5 file handle.
+    wf_type : WfType
+        Waveform type (rwf for raw, mcrd for MC).
+
+    Returns
+    -------
+    tb.Table or tb.EArray
+        SiPM waveform dataset.
+    """
     if   wf_type is WfType.rwf : return h5in.root.RD.sipmrwf
     elif wf_type is WfType.mcrd: return h5in.root.   sipmrd
     else                       : raise  TypeError(f"Invalid WfType: {type(wf_type)}")
 
 
 def get_trigger_info(h5in):
+    """Extract trigger type and channel information from an HDF5 file.
+
+    Parameters
+    ----------
+    h5in : tb.file.File
+        Open HDF5 file handle.
+
+    Returns
+    -------
+    tuple
+        (trigger_type, trigger_channels) iterators or defaults.
+    """
     group            = h5in.root.Trigger if "Trigger" in h5in.root else ()
     trigger_type     = group.trigger if "trigger" in group else repeat(None)
     trigger_channels = group.events  if "events"  in group else repeat(None)
@@ -467,23 +634,87 @@ def get_trigger_info(h5in):
 
 
 def get_event_info(h5in):
+    """Get the event information table from an HDF5 file.
+
+    Parameters
+    ----------
+    h5in : tb.file.File
+        Open HDF5 file handle.
+
+    Returns
+    -------
+    tb.Table
+        Event information table with event numbers and timestamps.
+    """
     return h5in.root.Run.events
 
 
 def get_number_of_active_pmts(detector_db, run_number):
+    """Count the number of active PMTs from the detector database.
+
+    Parameters
+    ----------
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number for the query.
+
+    Returns
+    -------
+    int
+        Number of active PMTs.
+    """
     datapmt = load_db.DataPMT(detector_db, run_number)
     return np.count_nonzero(datapmt.Active.values.astype(bool))
 
 
 def check_nonempty_indices(s1_indices, s2_indices):
+    """Check whether both S1 and S2 index arrays contain elements.
+
+    Parameters
+    ----------
+    s1_indices : np.ndarray
+        Indices of S1 candidates above threshold.
+    s2_indices : np.ndarray
+        Indices of S2 candidates above threshold.
+
+    Returns
+    -------
+    bool
+        True if both arrays are non-empty.
+    """
     return s1_indices.size and s2_indices.size
 
 
 def check_empty_pmap(pmap):
+    """Check whether a PMap contains any S1 or S2 peaks.
+
+    Parameters
+    ----------
+    pmap : PMap
+        Peak map object with s1s and s2s lists.
+
+    Returns
+    -------
+    bool
+        True if the PMap has at least one S1 or S2 peak.
+    """
     return bool(pmap.s1s) or bool(pmap.s2s)
 
 
 def length_of(iterable):
+    """Determine the length of various iterable types, including PyTables objects.
+
+    Parameters
+    ----------
+    iterable : various
+        Object whose length to determine.
+
+    Returns
+    -------
+    int or None
+        Length of the iterable, or None for iterators and NoneType.
+    """
     if   isinstance(iterable, tb.table.Table  ): return iterable.nrows
     elif isinstance(iterable, tb.earray.EArray): return iterable.shape[0]
     elif isinstance(iterable, np.ndarray      ): return iterable.shape[0]
@@ -496,6 +727,18 @@ def length_of(iterable):
 
 
 def check_lengths(*iterables):
+    """Verify that all provided iterables have the same length.
+
+    Parameters
+    ----------
+    *iterables : various
+        Objects to compare lengths.
+
+    Raises
+    ------
+    InvalidInputFileStructure
+        If any two iterables have different lengths.
+    """
     lengths  = map(length_of, iterables)
     nonnones = filter(lambda x: x is not None, lengths)
     if np.any(np.diff(list(nonnones)) != 0):
@@ -563,6 +806,20 @@ def mcsensors_from_file(paths     : List[str],
 
 
 def wf_from_files(paths, wf_type):
+    """Generator that yields waveform data dictionaries from HDF5 files.
+
+    Parameters
+    ----------
+    paths : List[str]
+        Input file paths.
+    wf_type : WfType
+        Waveform type to load (rwf or mcrd).
+
+    Yields
+    ------
+    dict
+        Dictionary with pmt, sipm, run_number, event_number, timestamp, and trigger info.
+    """
     for path in paths:
         with tb.open_file(path, "r") as h5in:
             try:
@@ -587,6 +844,18 @@ def wf_from_files(paths, wf_type):
 
 
 def pmap_from_files(paths):
+    """Generator that yields PMap objects with event metadata from HDF5 files.
+
+    Parameters
+    ----------
+    paths : List[str]
+        Input file paths containing PMap tables.
+
+    Yields
+    ------
+    dict
+        Dictionary with pmap, run_number, event_number, and timestamp.
+    """
     for path in paths:
         try:
             pmaps = load_pmaps(path, lazy=True)
@@ -678,6 +947,20 @@ def dst_from_files(paths: List[str], group: str, node:str) -> Iterator[Dict[str,
 
 @check_annotations
 def MC_hits_from_files(files_in : List[str], rate: float) -> Generator:
+    """Generator that yields MC hit data per event from input files.
+
+    Parameters
+    ----------
+    files_in : List[str]
+        Input file paths containing MC hits.
+    rate : float
+        Event rate for timestamp generation.
+
+    Yields
+    ------
+    dict
+        Dictionary with event_number, hit coordinates, energy, time, label, and metadata.
+    """
     timestamp = create_timestamp(rate)
     for filename in files_in:
         try:
@@ -749,6 +1032,20 @@ def dhits_from_files(paths: List[str]) -> Iterator[Dict[str, Union[ pd.DataFrame
 
 
 def sensor_data(path, wf_type):
+    """Extract sensor counts and waveform lengths from an HDF5 file.
+
+    Parameters
+    ----------
+    path : str
+        Input file path.
+    wf_type : WfType
+        Waveform type (rwf or mcrd).
+
+    Returns
+    -------
+    SensorData
+        Named tuple with NPMT, PMTWL, NSIPM, SIPMWL values.
+    """
     with tb.open_file(path, "r") as h5in:
         if   wf_type is WfType.rwf :   (pmt_wfs, sipm_wfs) = (h5in.root.RD .pmtrwf,   h5in.root.RD .sipmrwf)
         elif wf_type is WfType.mcrd:   (pmt_wfs, sipm_wfs) = (h5in.root.    pmtrd ,   h5in.root.    sipmrd )
@@ -762,6 +1059,28 @@ def sensor_data(path, wf_type):
 def build_pmap(detector_db, run_number, pmt_samp_wid, sipm_samp_wid,
                s1_lmax, s1_lmin, s1_rebin_stride, s1_stride, s1_tmax, s1_tmin,
                s2_lmax, s2_lmin, s2_rebin_stride, s2_stride, s2_tmax, s2_tmin, thr_sipm_s2):
+    """Create a function that builds a PMap from calibrated PMT waveforms and SiPM data.
+
+    Parameters
+    ----------
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    pmt_samp_wid, sipm_samp_wid : float
+        PMT and SiPM sample widths.
+    s1_lmax, s1_lmin, s1_rebin_stride, s1_stride, s1_tmax, s1_tmin : various
+        S1 peak search parameters.
+    s2_lmax, s2_lmin, s2_rebin_stride, s2_stride, s2_tmax, s2_tmin : various
+        S2 peak search parameters.
+    thr_sipm_s2 : float
+        SiPM charge threshold for S2.
+
+    Returns
+    -------
+    Callable
+        Function that takes (ccwf, s1_indx, s2_indx, sipmzs) and returns a PMap.
+    """
     s1_params = dict(time        = minmax(min = s1_tmin,
                                           max = s1_tmax),
                     length       = minmax(min = s1_lmin,
@@ -779,7 +1098,8 @@ def build_pmap(detector_db, run_number, pmt_samp_wid, sipm_samp_wid,
     datapmt = load_db.DataPMT(detector_db, run_number)
     pmt_ids = datapmt.SensorID[datapmt.Active.astype(bool)].values
 
-    def build_pmap(ccwf, s1_indx, s2_indx, sipmzs): # -> PMap
+    def build_pmap(ccwf, s1_indx, s2_indx, sipmzs):
+        """Build PMap from calibrated PMT waveforms and SiPM data."""
         return pkf.get_pmap(ccwf, s1_indx, s2_indx, sipmzs,
                             s1_params, s2_params, thr_sipm_s2, pmt_ids,
                             pmt_samp_wid, sipm_samp_wid)
@@ -788,11 +1108,30 @@ def build_pmap(detector_db, run_number, pmt_samp_wid, sipm_samp_wid,
 
 
 def calibrate_pmts(dbfile, run_number, n_maw, thr_maw):
+    """Create a function that calibrates PMT waveforms to PE units with MAW.
+
+    Parameters
+    ----------
+    dbfile : str
+        Detector database identifier.
+    run_number : int
+        Run number for calibration constants.
+    n_maw : int
+        Number of moving-average window samples.
+    thr_maw : float
+        Threshold for MAW baseline subtraction.
+
+    Returns
+    -------
+    Callable
+        Function that calibrates corrected PMT waveforms.
+    """
     DataPMT    = load_db.DataPMT(dbfile, run_number = run_number)
     adc_to_pes = np.abs(DataPMT.adc_to_pes.values)
     adc_to_pes = adc_to_pes[adc_to_pes > 0]
 
-    def calibrate_pmts(cwf):# -> CCwfs:
+    def calibrate_pmts(cwf):
+        """Calibrate PMT waveforms to PE with MAW baseline subtraction."""
         return csf.calibrate_pmts(cwf,
                                   adc_to_pes = adc_to_pes,
                                   n_maw      = n_maw,
@@ -801,10 +1140,27 @@ def calibrate_pmts(dbfile, run_number, n_maw, thr_maw):
 
 
 def calibrate_sipms(dbfile, run_number, thr_sipm):
+    """Create a function that calibrates SiPM waveforms to PE units.
+
+    Parameters
+    ----------
+    dbfile : str
+        Detector database identifier.
+    run_number : int
+        Run number for calibration constants.
+    thr_sipm : float
+        SiPM charge threshold for calibration.
+
+    Returns
+    -------
+    Callable
+        Function that subtracts baseline and calibrates raw SiPM waveforms.
+    """
     DataSiPM   = load_db.DataSiPM(dbfile, run_number)
     adc_to_pes = np.abs(DataSiPM.adc_to_pes.values)
 
     def calibrate_sipms(rwf):
+        """Subtract baseline and calibrate raw SiPM waveforms to PE."""
         return csf.calibrate_sipms(rwf,
                                    adc_to_pes = adc_to_pes,
                                    thr        = thr_sipm,
@@ -814,28 +1170,89 @@ def calibrate_sipms(dbfile, run_number, thr_sipm):
 
 
 def calibrate_with_mean(dbfile, run_number):
+    """Create a calibrator that subtracts mean baseline and converts SiPM waveforms to PE.
+
+    Parameters
+    ----------
+    dbfile : str
+        Detector database identifier.
+    run_number : int
+        Run number for calibration constants.
+
+    Returns
+    -------
+    Callable
+        Function that takes waveforms and returns mean-calibrated waveforms.
+    """
     DataSiPM   = load_db.DataSiPM(dbfile, run_number)
     adc_to_pes = np.abs(DataSiPM.adc_to_pes.values)
     def calibrate_with_mean(wfs):
+        """Subtract mean baseline and calibrate SiPM waveforms to PE."""
         return csf.subtract_baseline_and_calibrate(wfs, adc_to_pes)
     return calibrate_with_mean
 
 def calibrate_with_maw(dbfile, run_number, n_maw_sipm):
+    """Create a calibrator that subtracts MAW baseline and converts SiPM waveforms to PE.
+
+    Parameters
+    ----------
+    dbfile : str
+        Detector database identifier.
+    run_number : int
+        Run number for calibration constants.
+    n_maw_sipm : int
+        Number of moving-average window samples for baseline.
+
+    Returns
+    -------
+    Callable
+        Function that takes waveforms and returns MAW-calibrated waveforms.
+    """
     DataSiPM   = load_db.DataSiPM(dbfile, run_number)
     adc_to_pes = np.abs(DataSiPM.adc_to_pes.values)
     def calibrate_with_maw(wfs):
+        """Subtract MAW baseline and calibrate SiPM waveforms to PE."""
         return csf.subtract_baseline_maw_and_calibrate(wfs, adc_to_pes, n_maw_sipm)
     return calibrate_with_maw
 
 
 def zero_suppress_wfs(thr_csum_s1, thr_csum_s2):
+    """Create a function that finds indices where PMT-summed waveforms exceed thresholds.
+
+    Parameters
+    ----------
+    thr_csum_s1 : float
+        Threshold for S1 search on MAW-corrected PMT sum.
+    thr_csum_s2 : float
+        Threshold for S2 search on PMT sum.
+
+    Returns
+    -------
+    Callable
+        Function that returns (s1_indices, s2_indices) from PMT-sum waveforms.
+    """
     def ccwfs_to_zs(ccwf_sum, ccwf_sum_maw):
+        """Find indices where PMT-sum waveforms exceed S1/S2 thresholds."""
         return (pkf.indices_and_wf_above_threshold(ccwf_sum_maw, thr_csum_s1).indices,
                 pkf.indices_and_wf_above_threshold(ccwf_sum    , thr_csum_s2).indices)
     return ccwfs_to_zs
 
 
 def compute_pe_resolution(rms, adc_to_pes):
+    """Compute per-channel PE resolution as rms / adc_to_pes, with safe division.
+
+    Parameters
+    ----------
+    rms : np.ndarray
+        Single PE RMS values per channel.
+    adc_to_pes : np.ndarray
+        ADC-to-PE conversion factors per channel.
+
+    Returns
+    -------
+    np.ndarray
+        PE resolution (relative) per channel, zero where adc_to_pes is zero.
+    """
     return np.divide(rms                              ,
                      adc_to_pes                       ,
                      out   = np.zeros_like(adc_to_pes),
@@ -843,6 +1260,26 @@ def compute_pe_resolution(rms, adc_to_pes):
 
 
 def simulate_sipm_response(detector, run_number, wf_length, noise_cut, filter_padding):
+    """Create a function that simulates noisy SiPM response from MC photoelectrons.
+
+    Parameters
+    ----------
+    detector : str
+        Detector database identifier.
+    run_number : int
+        Run number for calibration constants.
+    wf_length : int
+        Waveform length in samples.
+    noise_cut : float
+        Noise threshold multiplier.
+    filter_padding : int
+        Number of samples to preserve around signal edges.
+
+    Returns
+    -------
+    Callable
+        Function that takes MC SiPM data and returns noise-suppressed waveforms.
+    """
     datasipm      = load_db.DataSiPM (detector, run_number)
     baselines     = load_db.SiPMNoise(detector, run_number)[-1]
     noise_sampler = NoiseSampler(detector, run_number, wf_length, True)
@@ -853,6 +1290,7 @@ def simulate_sipm_response(detector, run_number, wf_length, noise_cut, filter_pa
     pe_resolution = compute_pe_resolution(single_pe_rms, adc_to_pes)
 
     def simulate_sipm_response(sipmrd):
+        """Simulate noisy SiPM response and apply noise suppression."""
         wfs = sf.simulate_sipm_response(sipmrd, noise_sampler, adc_to_pes, pe_resolution)
         return wfm.noise_suppression(wfs, thresholds, filter_padding)
     return simulate_sipm_response
@@ -871,6 +1309,24 @@ def peak_classifier(**params):
 
 
 def compute_xy_position(dbfile, run_number, algo, **reco_params):
+    """Create a function that computes XY position from SiPM hits using the given algorithm.
+
+    Parameters
+    ----------
+    dbfile : str
+        Detector database identifier.
+    run_number : int
+        Run number for SiPM data.
+    algo : XYReco
+        Reconstruction algorithm (barycenter or corona).
+    **reco_params
+        Algorithm-specific parameters.
+
+    Returns
+    -------
+    Callable
+        Function that takes (xys, qs) and returns reconstructed position.
+    """
     if algo is XYReco.corona:
         datasipm    = load_db.DataSiPM(dbfile, run_number)
         reco_params = dict(all_sipms = datasipm, **reco_params)
@@ -879,12 +1335,29 @@ def compute_xy_position(dbfile, run_number, algo, **reco_params):
         algorithm   = barycenter
 
     def compute_xy_position(xys, qs):
+        """Compute XY position from SiPM hits using configured algorithm."""
         return algorithm(xys, qs, **reco_params)
 
     return compute_xy_position
 
 
 def compute_z_and_dt(t_s2, t_s1, drift_v):
+    """Compute Z position and drift time from S1/S2 time difference.
+
+    Parameters
+    ----------
+    t_s2 : float
+        S2 time.
+    t_s1 : list of float
+        S1 times for multiple S1 candidates.
+    drift_v : float
+        Electron drift velocity.
+
+    Returns
+    -------
+    tuple
+        (z_positions, drift_times) in appropriate units.
+    """
     dt  = t_s2 - np.array(t_s1)
     z   = dt * drift_v
     dt *= units.ns / units.mus
@@ -893,6 +1366,26 @@ def compute_z_and_dt(t_s2, t_s1, drift_v):
 
 def build_pointlike_event(dbfile, run_number, drift_v,
                           reco, charge_type):
+    """Create a function that builds a KrEvent from a PMap and peak selector output.
+
+    Parameters
+    ----------
+    dbfile : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    drift_v : float
+        Electron drift velocity.
+    reco : Callable
+        XY reconstruction function.
+    charge_type : SiPMCharge
+        SiPM charge interpretation mode.
+
+    Returns
+    -------
+    Callable
+        Function that takes (pmap, selector_output, event_number, timestamp) and returns KrEvent.
+    """
     datasipm   = load_db.DataSiPM(dbfile, run_number)
     sipm_xs    = datasipm.X.values
     sipm_ys    = datasipm.Y.values
@@ -901,6 +1394,7 @@ def build_pointlike_event(dbfile, run_number, drift_v,
     sipm_noise = NoiseSampler(dbfile, run_number).signal_to_noise
 
     def build_pointlike_event(pmap, selector_output, event_number, timestamp):
+        """Build KrEvent from PMap with S1/S2 properties and 3D reconstruction."""
         evt = KrEvent(event_number, timestamp * 1e-3)
 
         evt.nS1 = 0
@@ -958,6 +1452,23 @@ def build_pointlike_event(dbfile, run_number, drift_v,
 
 
 def get_s1_time(pmap, selector_output):
+    """Get the reference S1 time from a PMap for Z reconstruction.
+
+    Uses the first passing S1 peak, or falls back to the first S2
+    start time if no S1 is available.
+
+    Parameters
+    ----------
+    pmap : PMap
+        Peak map containing S1 and S2 objects.
+    selector_output : S12SelectorOutput
+        Boolean arrays indicating which peaks pass selection.
+
+    Returns
+    -------
+    float
+        Reference S1 time in the waveform time system.
+    """
     # in order to compute z one needs to define one S1
     # for time reference. By default the filter will only
     # take events with exactly one s1. Otherwise, the
@@ -974,12 +1485,42 @@ def get_s1_time(pmap, selector_output):
 
 
 def try_global_reco(reco, xys, qs):
+    """Attempt global XY reconstruction, returning empty coords on failure.
+
+    Parameters
+    ----------
+    reco : Callable
+        XY reconstruction function.
+    xys : np.ndarray
+        SiPM position coordinates.
+    qs : np.ndarray
+        SiPM charges.
+
+    Returns
+    -------
+    xy
+        Reconstructed (X, Y) or empty xy on failure.
+    """
     try              : cluster = reco(xys, qs)[0]
     except XYRecoFail: return xy.empty()
     else             : return xy(cluster.X, cluster.Y)
 
 
 def sipm_positions(dbfile, run_number):
+    """Load SiPM XY positions from the detector database.
+
+    Parameters
+    ----------
+    dbfile : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+
+    Returns
+    -------
+    np.ndarray
+        2-D array of shape (nsipm, 2) with X and Y coordinates.
+    """
     datasipm = load_db.DataSiPM(dbfile, run_number)
     sipm_xs  = datasipm.X.values
     sipm_ys  = datasipm.Y.values
@@ -999,16 +1540,21 @@ def hit_builder( detector_db : str
     """
     Builds hits from PMaps using a general clustering algorithm. For a given
     PMap, and the output of the peak-selector output does the following:
+
     - Filters out peaks rejected by the selector
     - Picks up the S1 (always the first one, if there are more, they are ignored)
     - Rebins each S2 according to `rebin_method` and `rebin_slices`
     - For each S2:
+
       - Compute the overall position of the signal according to `global_reco`
         (typically barycenter in XYZ)
       - For each (rebinned) slice of the S2:
+
         - Clusterize the SiPM responses according to `slice_reco`
+
           - Failing XY reconstructions (e.g. not enough SiPMs with signal)
             generate "empty" (a.k.a. NN) clusters
+
         - Assign each cluster the corresponding fraction of the energy in the
           slice
 
@@ -1051,11 +1597,11 @@ def hit_builder( detector_db : str
     sipm_xys   = sipm_positions(detector_db, run_number)
     sipm_noise =   NoiseSampler(detector_db, run_number).signal_to_noise
 
-    def build_hits( pmap           : PMap
-                  , selector_output: S12SelectorOutput
-                  , event_number   : int
-                  , timestamp      : float
-                  ) -> HitCollection:
+    def build_hits(pmap           : PMap,
+                   selector_output: S12SelectorOutput,
+                   event_number   : int,
+                   timestamp      : float) -> HitCollection:
+        """Build HitCollection from PMap using clustering algorithm."""
         hitc = HitCollection(event_number, timestamp * 1e-3)
         s1_t = get_s1_time(pmap, selector_output)
 
@@ -1110,13 +1656,16 @@ def sipms_as_hits( detector_db : str
     """
     Builds hits from PMaps taking each SiPM as an individual hit. For a given
     PMap, and the output of the peak-selector output does the following:
+
     - Filters out peaks rejected by the selector
     - Picks up the S1 (always the first one, if there are more, they are ignored)
     - Rebins each S2 according to `rebin_method` and `rebin_slices`
     - For each S2:
+
       - Compute the overall position of the signal according to `global_reco`
         (typically barycenter in XYZ)
       - For each (rebinned) slice of the S2:
+
         - Filters out SiPMs below `q_thr`
         - If no hits survive, the entire slice is summarized in an "empty"
           (a.k.a. NN) hit
@@ -1165,11 +1714,11 @@ def sipms_as_hits( detector_db : str
     sipm_xys   = sipm_positions(detector_db, run_number)
     sipm_noise =   NoiseSampler(detector_db, run_number).signal_to_noise
 
-    def build_hits( pmap           : PMap
-                  , selector_output: S12SelectorOutput
-                  , event_number   : int
-                  , timestamp      : float
-                  ) -> pd.DataFrame:
+    def build_hits(pmap           : PMap,
+                   selector_output: S12SelectorOutput,
+                   event_number   : int,
+                   timestamp      : float) -> pd.DataFrame:
+        """Build hits DataFrame treating each SiPM as an individual hit."""
         s1_t = get_s1_time(pmap, selector_output)
         hits = []
         for peak_no, (passed, peak) in enumerate(zip(selector_output.s2_peaks,
@@ -1214,23 +1763,74 @@ def sipms_as_hits( detector_db : str
 
 
 def waveform_binner(bins):
+    """Create a function that bins waveform values into histograms.
+
+    Parameters
+    ----------
+    bins : np.ndarray
+        Histogram bin edges.
+
+    Returns
+    -------
+    Callable
+        Function that takes waveforms and returns binned histograms.
+    """
     def bin_waveforms(wfs):
+        """Bin waveform values into histograms."""
         return cf.bin_waveforms(wfs, bins)
     return bin_waveforms
 
 
 def waveform_integrator(limits):
+    """Create a function that integrates waveforms over specified time windows.
+
+    Parameters
+    ----------
+    limits : np.ndarray
+        Paired integration limits (corr, anti pairs).
+
+    Returns
+    -------
+    Callable
+        Function that returns correlated integrals from waveforms.
+    """
     def integrate_wfs(wfs):
+        """Integrate waveforms over correlated time windows."""
         return cf.spaced_integrals(wfs, limits)[:, ::2]
     return integrate_wfs
 
 
 # Compound components
 def compute_and_write_pmaps(detector_db, run_number, pmt_samp_wid, sipm_samp_wid,
-                  s1_lmax, s1_lmin, s1_rebin_stride, s1_stride, s1_tmax, s1_tmin,
-                  s2_lmax, s2_lmin, s2_rebin_stride, s2_stride, s2_tmax, s2_tmin, thr_sipm_s2,
-                  h5out, sipm_rwf_to_cal=None):
+                            s1_lmax, s1_lmin, s1_rebin_stride, s1_stride, s1_tmax, s1_tmin,
+                            s2_lmax, s2_lmin, s2_rebin_stride, s2_stride, s2_tmax, s2_tmin,
+                            thr_sipm_s2, h5out, sipm_rwf_to_cal=None):
+    """Build the dataflow pipeline for computing and writing PMaps to HDF5.
 
+    Parameters
+    ----------
+    detector_db : str
+        Detector database identifier.
+    run_number : int
+        Run number.
+    pmt_samp_wid, sipm_samp_wid : float
+        PMT and SiPM sample widths.
+    s1_lmax, s1_lmin, s1_rebin_stride, s1_stride, s1_tmax, s1_tmin : various
+        S1 peak search parameters.
+    s2_lmax, s2_lmin, s2_rebin_stride, s2_stride, s2_tmax, s2_tmin : various
+        S2 peak search parameters.
+    thr_sipm_s2 : float
+        SiPM charge threshold for S2.
+    h5out : tb.file.File
+        Output HDF5 file handle.
+    sipm_rwf_to_cal : Callable or None
+        Optional SiPM calibration step.
+
+    Returns
+    -------
+    tuple
+        (compute_pmaps pipeline, empty_indices counter, empty_pmaps counter).
+   """
     # Filter events without signal over threshold
     indices_pass    = fl.map(check_nonempty_indices,
                              args = ("s1_indices", "s2_indices"),
@@ -1313,6 +1913,39 @@ def calculate_and_save_buffers(buffer_length    : float        ,
                                nsamp_pmt        : int          ,
                                nsamp_sipm       : int          ,
                                order_sensors    : Union[NoneType, Callable]):
+    """Build the dataflow pipeline for buffer calculation and writing.
+
+    Finds trigger-like signals, computes buffer boundaries, orders sensors,
+    and writes buffers to the output HDF5 file.
+
+    Parameters
+    ----------
+    buffer_length : float
+        Buffer duration in microseconds.
+    max_time : float
+        Maximum event time window.
+    pre_trigger : float
+        Pre-trigger time in microseconds.
+    pmt_wid, sipm_wid : float
+        PMT and SiPM sample widths.
+    trigger_threshold : int
+        PE threshold for trigger signal detection.
+    h5out : tb.File
+        Output HDF5 file handle.
+    run_number : int
+        Run number.
+    npmt, nsipm : int
+        Number of PMT and SiPM channels.
+    nsamp_pmt, nsamp_sipm : int
+        Number of samples per buffer for PMT and SiPM.
+    order_sensors : Callable or None
+        Optional sensor ordering function.
+
+    Returns
+    -------
+    Callable
+        Dataflow pipeline for buffer processing.
+    """
     find_signal       = fl.map(signal_finder(buffer_length, pmt_wid,
                                              trigger_threshold     ),
                                args = "pmt_bin_wfs"                 ,
@@ -1364,7 +1997,20 @@ def calculate_and_save_buffers(buffer_length    : float        ,
 
 @check_annotations
 def Efield_copier(energy_type: HitEnergy):
+    """Create a function that copies an energy column to Ec and Ep fields.
+
+    Parameters
+    ----------
+    energy_type : HitEnergy
+        Source energy field to copy from.
+
+    Returns
+    -------
+    Callable
+        Function that adds Ec and Ep columns to a hits DataFrame.
+    """
     def copy_Efield(df: pd.DataFrame) -> pd.DataFrame:
+        """Copy energy field to Ec and Ep columns."""
         return df.assign( Ec = df[energy_type.value]
                         , Ep = df[energy_type.value])
     return copy_Efield
@@ -1428,6 +2074,7 @@ def track_writer(h5out):
     For a given open table returns a writer for topology info dataframe
     """
     def write_tracks(df):
+        """Write track topology info DataFrame to HDF5."""
         return df_writer(h5out              = h5out              ,
                          df                 = df                 ,
                          group_name         = 'Tracking'         ,
@@ -1442,6 +2089,7 @@ def summary_writer(h5out):
     For a given open table returns a writer for summary info dataframe
     """
     def write_summary(df):
+        """Write event summary info DataFrame to HDF5."""
         return df_writer(h5out              = h5out                      ,
                          df                 = df                         ,
                          group_name         = 'Summary'                  ,
@@ -1486,6 +2134,7 @@ def track_blob_info_creator_extractor(vox_size         : Tuple[float, float, flo
       - flag to indicate whether there are hits outside of the correction-map domain
     """
     def create_extract_track_blob_info(hits: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, bool]:
+        """Extract track/blob topology info and assign track IDs to hits."""
         df = pd.DataFrame(columns=list(types_dict_tracks.keys()))
         hits = hits.assign(track_id=-1)
         if len(hits) > max_num_hits:
@@ -1562,12 +2211,44 @@ def track_blob_info_creator_extractor(vox_size         : Tuple[float, float, flo
 
 
 def sort_hits(hits):
+    """Sort a hits DataFrame by Z, then X, then Y coordinate.
+
+    Parameters
+    ----------
+    hits : pd.DataFrame
+        Hits DataFrame with Z, X, Y columns.
+
+    Returns
+    -------
+    pd.DataFrame
+        Sorted DataFrame.
+    """
     return hits.sort_values("Z X Y".split())
 
 
 def compute_and_write_tracks_info(paolina_params, h5out,
                                   hit_type, filter_hits_table_name,
                                   hits_writer):
+    """Build the dataflow pipeline for track reconstruction and summary writing.
+
+    Parameters
+    ----------
+    paolina_params : dict
+        Track reconstruction parameters for paolina algorithm.
+    h5out : tb.File
+        Output HDF5 file handle.
+    hit_type : HitEnergy
+        Energy field to use for track reconstruction.
+    filter_hits_table_name : str
+        Name for the hits filter table in HDF5.
+    hits_writer : Callable
+        Function to write processed hits to HDF5.
+
+    Returns
+    -------
+    Callable
+        Dataflow pipeline for track processing and writing.
+    """
 
     filter_events_nohits = fl.map(lambda x : len(x) > 0,
                                       args = 'hits',
@@ -1609,6 +2290,7 @@ def compute_and_write_tracks_info(paolina_params, h5out,
     select_and_write_tracks = events_passed_topology.filter, write_tracks
 
     def change_type(df):
+        """Ensure Xpeak and Ypeak columns are float type."""
         if "Xpeak" in df:
             return df.astype(dict(Xpeak=float, Ypeak=float))
         return df
@@ -1633,6 +2315,18 @@ def compute_and_write_tracks_info(paolina_params, h5out,
 
 @check_annotations
 def hits_merger(same_peak : bool) -> Callable:
+    """Create a function that merges NN (no-number) hits into neighbors.
+
+    Parameters
+    ----------
+    same_peak : bool
+        If True, only merge within the same S2 peak.
+
+    Returns
+    -------
+    Callable
+        Function that merges NN hits in a hits DataFrame.
+    """
     return partial(hif.merge_NN_hits, same_peak=same_peak)
 
 
@@ -1656,6 +2350,7 @@ def hits_thresholder(threshold_charge : float, same_peak : bool ) -> Callable:
     """
 
     def threshold_hits_and_merge_nn(hits: pd.DataFrame) -> pd.DataFrame:
+        """Apply charge threshold and merge NN hits into neighbors."""
         thr_hits = hif.threshold_hits(    hits, threshold_charge     )
         mrg_hits = hif.merge_NN_hits (thr_hits, same_peak = same_peak)
         return mrg_hits
@@ -1689,6 +2384,7 @@ def hits_corrector( filename     : str
     maps = load_map(os.path.expandvars(filename))
 
     def correct(hits : pd.DataFrame) -> pd.DataFrame:
+        """Apply energy correction map and optionally temporal corrections."""
         hits = apply_correctionmap_inplace_hits(hits, maps.krmap, norm_method, norm_options, 'Ec', units.MeV)
 
         if apply_z:
@@ -1735,4 +2431,16 @@ def hits_clusterizer( min_samples : int
 
 
 def identity(x : Any) -> Any:
+    """Return the input unchanged. Useful as a no-op in dataflow pipelines.
+
+    Parameters
+    ----------
+    x : Any
+        Input value.
+
+    Returns
+    -------
+    Any
+        The same input value.
+    """
     return x

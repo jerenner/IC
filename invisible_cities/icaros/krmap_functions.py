@@ -59,6 +59,7 @@ def create_empty_map(xy_range : tuple,
     """
     - Uses every possible indices combination.
     - Creates a DataFrame filled with NaNs for each (i, j, k) combination.
+
     Parameters
     ----------
     xy_range : tuple
@@ -177,6 +178,23 @@ def gaussian_fit(var        : np.ndarray,
 
 def gaussian_fit_ready(nbins      : int,
                        min_events : int = 50):
+    """Create a Gaussian fit function with fixed binning parameters.
+
+    Returns a callable that applies ``gaussian_fit`` to data using the
+    specified number of bins and minimum event count.
+
+    Parameters
+    ----------
+    nbins : int
+        Number of histogram bins for the fit.
+    min_events : int
+        Minimum number of events required for the fit.
+
+    Returns
+    -------
+    Callable
+        Function taking a data array and returning the Gaussian fit result.
+    """
     def fit_fun(var):
         return gaussian_fit(var, nbins, min_events)
     return fit_fun
@@ -315,9 +333,11 @@ def include_coordinates(krmap     : pd.DataFrame,
 def regularize_map(krmap    : pd.DataFrame,
                    mapshape : tuple) -> pd.DataFrame:
     """
-    -Function to regularize map in case there is any whole (NaN) inside the chamber volume.
-    -It takes each bin in the map and, if there is a whole, searchs for non NaN and non zero
-     neighbours and sets the mu value in the whole as the mean mu value of the neighbours.
+    Function to regularize map in case there is any whole (NaN) inside the chamber volume.
+
+    It takes each bin in the map and, if there is a whole, searchs for non NaN and non zero
+    neighbours and sets the mu value in the whole as the mean mu value of the neighbours.
+
     Parameters
     ----------
     krmap : pd.DataFrame
@@ -663,6 +683,7 @@ def get_time_evol(df          : pd.DataFrame,
     Splits input dataframe into time slices using 'time' column
     and then gets time evolution parameters.
     Creates a dataframe including all the time evolution relevant parameters.
+
     Parameters
     ----------
     df : pd.DataFrame

@@ -16,19 +16,19 @@ from .. types.ic_types     import NN
 
 def hits_from_df (dst : pd.DataFrame, skip_NN : bool = False) -> Dict[int, HitCollection]:
     """
-    Function that transforms pandas DataFrame dst to HitCollection
-    ------
+    Function that transforms pandas DataFrame dst to HitCollection.
+
     Parameters
-    ------
+    ----------
     dst : pd.DataFrame
-        DataFrame with obligatory columns :
-                event, npeak, X, Y, Z,  Q, E
-        If time, Ec, track_id are not inside dst the default value is set to -1
-        If Xpeak, Ypeak not in dst the default value is -1000
-    ------
+        DataFrame with obligatory columns: event, npeak, X, Y, Z, Q, E.
+        If time, Ec, track_id are not inside dst the default value is set to -1.
+        If Xpeak, Ypeak not in dst the default value is -1000.
+
     Returns
-    ------
-    Dictionary {event_number : HitCollection}
+    -------
+    Dict[int, HitCollection]
+        Dictionary {event_number : HitCollection}
     """
     all_events = {}
     times = getattr(dst, 'time', [-1]*len(dst))
@@ -75,20 +75,21 @@ def load_hits(DST_file_name : str, group_name : str = 'RECO', table_name : str =
     """
     Function to load hits into HitCollection object.
 
-    ------
     Parameters
-    ------
+    ----------
     DST_file_name : str
-    group_name    : str (default 'RECO')
+        Path to the DST file
+    group_name : str (default 'RECO')
         Name of the group inside pytable
-    table_name    : str (default 'Events')
+    table_name : str (default 'Events')
         Name of the table inside the group
-    skip_NN       : bool (default False)
+    skip_NN : bool (default False)
         whether to skip NN hits
-    ------
+
     Returns
-    ------
-    Dictionary {event_number : HitCollection}
+    -------
+    Dict[int, HitCollection]
+        Dictionary {event_number : HitCollection}
     """
     dst = load_dst(DST_file_name, group_name, table_name)
     hits_dict = {}
@@ -100,26 +101,47 @@ def load_hits(DST_file_name : str, group_name : str = 'RECO', table_name : str =
 def load_hits_skipping_NN(DST_file_name : str, group_name : str = 'RECO', table_name : str = 'Events'
                           )-> Dict[int, HitCollection]:
     """
-    Function to load hits into HitCollection object.
+    Function to load hits into HitCollection object, skipping NN hits.
 
-    ------
     Parameters
-    ------
+    ----------
     DST_file_name : str
-    group_name    : str (default 'RECO')
+        Path to the DST file
+    group_name : str (default 'RECO')
         Name of the group inside pytable
-    table_name    : str (default 'Events')
+    table_name : str (default 'Events')
         Name of the table inside the group
-    ------
+
     Returns
-    ------
-    Dictionary {event_number : HitCollection} with no NN hits
+    -------
+    Dict[int, HitCollection]
+        Dictionary {event_number : HitCollection} with no NN hits
     """
     return load_hits (DST_file_name = DST_file_name, group_name = group_name, table_name = table_name, skip_NN = True)
 
 
-# writers
 def hits_writer(hdf5_file, group_name, table_name, *, compression=None):
+    """Create an HDF5 writer for hits DataFrames.
+
+    Wraps ``df_writer`` with fixed parameters for hits data, indexing on
+    the ``event`` column.
+
+    Parameters
+    ----------
+    hdf5_file : tb.File
+        Open HDF5 file.
+    group_name : str
+        HDF5 group name.
+    table_name : str
+        Table name within the group.
+    compression : str, optional
+        Compression mode, passed to ``tbl.filters``.
+
+    Returns
+    -------
+    Callable
+        Function that writes a hits DataFrame to the HDF5 table.
+    """
     return partial( df_writer, hdf5_file
                   , group_name         = group_name
                   , table_name         = table_name
