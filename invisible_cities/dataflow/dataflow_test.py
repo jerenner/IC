@@ -1,4 +1,4 @@
-import dataflow as df
+from . import dataflow as df
 
 from pytest import raises
 from pytest import mark
